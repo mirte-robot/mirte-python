@@ -46,7 +46,8 @@ def load_zoef_module(stepper, do_step):
     # https://stackoverflow.com/questions/34506638/how-to-register-atexit-function-in-pythons-multiprocessing-subprocess
     # TODO: this assumes we have the robot initlized under variable 'zoef'. As soon as we let them create their own python,
     # this might not work anymore.
-    test.zoef.stop()
+    if hasattr(test, 'zoef'):
+       test.zoef.stop()
 
     # Sending the linetrace 0 to the client
     server.send_message_to_all("0")
