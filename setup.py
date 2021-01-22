@@ -4,7 +4,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="zoef_python",
+    name="zoef_robot",
     install_requires=["websocket_server", "rospkg"],
     version="0.1.0",
     author="Martin Klomp",
@@ -13,7 +13,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/zoef-robot/zoef_python",
-    packages=setuptools.find_packages(),
+    packages=['zoef_robot'],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: Apache Software License",

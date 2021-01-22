@@ -9,7 +9,7 @@ from websocket_server import WebsocketServer
 
 # Already load rospy (whicht takes long) and robot, so zoef.py does not need to do this anymore
 import rospy
-import robot
+from zoef_robot import robot
 
 # Global shared memory objects (TODO: check if we need shared memory, why is server working?)
 stepper = multiprocessing.Value('b', True)
