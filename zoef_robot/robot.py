@@ -52,6 +52,14 @@ class Robot():
             for motor in motors:
                 self.motor_services[motor] = rospy.ServiceProxy('/zoef/set_' + motors[motor]["name"] + '_speed', SetMotorSpeed, persistent=True)
 
+        # Service for motor speed
+        if rospy.has_param("/zoef/servo"):
+            servos = rospy.get_param("/zoef/servo")
+            self.servo_services = {}
+            for servo in servos:
+                self.servo_services[servo] = rospy.ServiceProxy('/zoef/set_' + motors[motor]["name"] + '_servo_angle', SetServoAngle, persistent=True)
+
+
 #        self.text_publisher = rospy.Publisher('display_text', String, queue_size=10)
 #        self.velocity_publisher = rospy.Publisher('/mobile_base_controller/cmd_vel', Twist, queue_size=10)
 
@@ -111,12 +119,9 @@ class Robot():
             for sensor in keypad_sensors:
                 self.keypad_services[sensor] = rospy.ServiceProxy('/zoef/get_keypad_' + keypad_sensors[sensor]["name"], GetKeypad, persistent=True)
 
-
-
         self.get_pin_value_service = rospy.ServiceProxy('/zoef/get_pin_value', GetPinValue, persistent=True)
         self.set_pin_value_service = rospy.ServiceProxy('/zoef/set_pin_value', SetPinValue, persistent=True)
         self.set_led_value_service = rospy.ServiceProxy('/zoef/set_led_value', SetLEDValue, persistent=True)
-        self.set_servo_angle_service = rospy.ServiceProxy('/zoef/set_servo_angle', SetServoAngle, persistent=True)
 
 
         signal.signal(signal.SIGINT, self.signal_handler)
@@ -184,8 +189,8 @@ class Robot():
         value = self.set_led_value_service(value)
         return value.status
 
-    def setServoAngle(self, angle):
-        value = self.set_servo_angle_service(angle)
+    def setServoAngle(self, servo, angle):
+        value = self.servo_services[servo](angle)
         return value.status
 
     def setDigitalPinValue(self, pin, value):
