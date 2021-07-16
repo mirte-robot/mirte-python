@@ -2,7 +2,7 @@
 #TODO: for debugging purposes we could *also* listen to keyboard events
 
 import sys
-import imp
+from importlib.machinery import SourceFileLoader
 import time
 import multiprocessing
 from websocket_server import WebsocketServer
@@ -40,7 +40,7 @@ def load_zoef_module(stepper, do_step):
     # rospy.init_node() for some reason needs to be called from __main__ when importing in the regular way.
     # We thereofe need to load teh module from source instead of importing it.
     # https://answers.ros.org/question/266612/rospy-init_node-inside-imported-file
-    test = imp.load_source("zoef", "/home/zoef/workdir/zoef.py")
+    test = SourceFileLoader("zoef", "/home/zoef/workdir/zoef.py").load_module()
 
     # Stop the motors. The atexit call in robot.py does not work when running from a subprocess: 
     # https://stackoverflow.com/questions/34506638/how-to-register-atexit-function-in-pythons-multiprocessing-subprocess
