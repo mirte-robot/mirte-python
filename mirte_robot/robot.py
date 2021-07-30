@@ -163,7 +163,7 @@ class Robot():
         return value.data
 
     def getAnalogPinValue(self, pin):
-        value = self.get_pin_value_service(pin, "analog")
+        value = self.get_pin_value_service(str(pin), "analog")
         return value.data
 
     def setAnalogPinValue(self, pin, value):
@@ -183,7 +183,7 @@ class Robot():
         return value.status
 
     def getDigitalPinValue(self, pin):
-        value = self.get_pin_value_service(pin, "digital")
+        value = self.get_pin_value_service(str(pin), "digital")
         return value.data
 
     def setLED(self, value):
