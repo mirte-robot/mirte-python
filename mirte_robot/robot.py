@@ -166,7 +166,7 @@ class Robot():
         return value.data
 
     def setAnalogPinValue(self, pin, value):
-        value = self.set_pin_value_service(pin, "analog", value)
+        value = self.set_pin_value_service(str(pin), "analog", value)
         return value.status
 
     def setOLEDText(self, oled, text):
@@ -194,7 +194,7 @@ class Robot():
         return value.status
 
     def setDigitalPinValue(self, pin, value):
-        value = self.set_pin_value_service(pin, "digital", value)
+        value = self.set_pin_value_service(str(pin), "digital", value)
         return value.status
 
     def getVirtualColor(self, direction):
