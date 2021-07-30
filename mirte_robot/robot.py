@@ -57,7 +57,7 @@ class Robot():
             servos = rospy.get_param("/mirte/servo")
             self.servo_services = {}
             for servo in servos:
-                self.servo_services[servo] = rospy.ServiceProxy('/mirte/set_' + motors[motor]["name"] + '_servo_angle', SetServoAngle, persistent=True)
+                self.servo_services[servo] = rospy.ServiceProxy('/mirte/set_' + servos[servo]["name"] + '_servo_angle', SetServoAngle, persistent=True)
 
 
 #        self.text_publisher = rospy.Publisher('display_text', String, queue_size=10)
