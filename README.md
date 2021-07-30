@@ -1,3 +1,3 @@
-# Zoef Python API
+# Mirte Python API
 
-This package provides the API for the Zoef Robot. Please read the Zoef documentation.
+This package provides the API for the Mirte Robot. Please read the Mirte documentation.

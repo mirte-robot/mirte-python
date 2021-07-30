@@ -16,12 +16,12 @@ from geometry_msgs.msg import Twist
 from std_msgs.msg import Int32
 from std_msgs.msg import String
 from std_msgs.msg import Empty
-from zoef_msgs.msg import *
+from mirte_msgs.msg import *
 
-from zoef_msgs.srv import *
+from mirte_msgs.srv import *
 from std_srvs.srv import *
 
-zoef = {}
+mirte = {}
 
 class Robot():
     def __init__(self):
@@ -46,27 +46,27 @@ class Robot():
         #self.stop_controller_service()
 
         # Service for motor speed
-        if rospy.has_param("/zoef/motor"):
-            motors = rospy.get_param("/zoef/motor")
+        if rospy.has_param("/mirte/motor"):
+            motors = rospy.get_param("/mirte/motor")
             self.motor_services = {}
             for motor in motors:
-                self.motor_services[motor] = rospy.ServiceProxy('/zoef/set_' + motors[motor]["name"] + '_speed', SetMotorSpeed, persistent=True)
+                self.motor_services[motor] = rospy.ServiceProxy('/mirte/set_' + motors[motor]["name"] + '_speed', SetMotorSpeed, persistent=True)
 
         # Service for motor speed
-        if rospy.has_param("/zoef/servo"):
-            servos = rospy.get_param("/zoef/servo")
+        if rospy.has_param("/mirte/servo"):
+            servos = rospy.get_param("/mirte/servo")
             self.servo_services = {}
             for servo in servos:
-                self.servo_services[servo] = rospy.ServiceProxy('/zoef/set_' + motors[motor]["name"] + '_servo_angle', SetServoAngle, persistent=True)
+                self.servo_services[servo] = rospy.ServiceProxy('/mirte/set_' + motors[motor]["name"] + '_servo_angle', SetServoAngle, persistent=True)
 
 
 #        self.text_publisher = rospy.Publisher('display_text', String, queue_size=10)
 #        self.velocity_publisher = rospy.Publisher('/mobile_base_controller/cmd_vel', Twist, queue_size=10)
 
-        rospy.init_node('zoef_python_api', anonymous=False)
+        rospy.init_node('mirte_python_api', anonymous=False)
         # Services
-#        self.move_service = rospy.ServiceProxy('zoef_navigation/move', Move)
-#        self.turn_service = rospy.ServiceProxy('zoef_navigation/turn', Turn)
+#        self.move_service = rospy.ServiceProxy('mirte_navigation/move', Move)
+#        self.turn_service = rospy.ServiceProxy('mirte_navigation/turn', Turn)
 
         ## Sensors
         ## The sensors are now just using a blocking service call. This is intentionally
@@ -76,21 +76,21 @@ class Robot():
         ## maybe even to blockly.
 
         # Services for distance sensors
-        if rospy.has_param("/zoef/distance"):
-            distance_sensors = rospy.get_param("/zoef/distance")
+        if rospy.has_param("/mirte/distance"):
+            distance_sensors = rospy.get_param("/mirte/distance")
             self.distance_services = {}
             for sensor in distance_sensors:
-               self.distance_services[sensor] = rospy.ServiceProxy('/zoef/get_distance_' + distance_sensors[sensor]["name"], GetDistance, persistent=True)
+               self.distance_services[sensor] = rospy.ServiceProxy('/mirte/get_distance_' + distance_sensors[sensor]["name"], GetDistance, persistent=True)
 
-        if rospy.has_param("/zoef/oled"):
-            oleds = rospy.get_param("/zoef/oled")
+        if rospy.has_param("/mirte/oled"):
+            oleds = rospy.get_param("/mirte/oled")
             self.oled_services = {}
             for oled in oleds:
-               self.oled_services[oled] = rospy.ServiceProxy('/zoef/set_' + oleds[oled]["name"] + '_image', SetOLEDImage, persistent=True)
+               self.oled_services[oled] = rospy.ServiceProxy('/mirte/set_' + oleds[oled]["name"] + '_image', SetOLEDImage, persistent=True)
 
         # Services for intensity sensors (TODO: how to expose the digital version?)
-        if rospy.has_param("/zoef/intensity"):
-            intensity_sensors = rospy.get_param("/zoef/intensity")
+        if rospy.has_param("/mirte/intensity"):
+            intensity_sensors = rospy.get_param("/mirte/intensity")
             self.intensity_services = {}
 
             # We can not get the types (analog and/or digital) of the intensity sensor
@@ -99,29 +99,29 @@ class Robot():
             # services.
             service_list = rosservice.get_service_list()
             for sensor in intensity_sensors:
-                if "/zoef/get_intensity_" + intensity_sensors[sensor]["name"] in service_list:
-                    self.intensity_services[sensor] = rospy.ServiceProxy('/zoef/get_intensity_' + intensity_sensors[sensor]["name"], GetIntensity, persistent=True)
-                if "/zoef/get_intensity_" + intensity_sensors[sensor]["name"] + "_digital" in service_list:
-                    self.intensity_services[sensor + "_digital"] = rospy.ServiceProxy('/zoef/get_intensity_' + intensity_sensors[sensor]["name"] + "_digital", GetIntensityDigital, persistent=True)
+                if "/mirte/get_intensity_" + intensity_sensors[sensor]["name"] in service_list:
+                    self.intensity_services[sensor] = rospy.ServiceProxy('/mirte/get_intensity_' + intensity_sensors[sensor]["name"], GetIntensity, persistent=True)
+                if "/mirte/get_intensity_" + intensity_sensors[sensor]["name"] + "_digital" in service_list:
+                    self.intensity_services[sensor + "_digital"] = rospy.ServiceProxy('/mirte/get_intensity_' + intensity_sensors[sensor]["name"] + "_digital", GetIntensityDigital, persistent=True)
 
 
         # Services for encoder sensors
-        if rospy.has_param("/zoef/encoder"):
-            encoder_sensors = rospy.get_param("/zoef/encoder")
+        if rospy.has_param("/mirte/encoder"):
+            encoder_sensors = rospy.get_param("/mirte/encoder")
             self.encoder_services = {}
             for sensor in encoder_sensors:
-                self.encoder_services[sensor] = rospy.ServiceProxy('/zoef/get_encoder_' + encoder_sensors[sensor]["name"], GetEncoder, persistent=True)
+                self.encoder_services[sensor] = rospy.ServiceProxy('/mirte/get_encoder_' + encoder_sensors[sensor]["name"], GetEncoder, persistent=True)
 
         # Services for keypad sensores
-        if rospy.has_param("/zoef/keypad"):
-            keypad_sensors = rospy.get_param("/zoef/keypad")
+        if rospy.has_param("/mirte/keypad"):
+            keypad_sensors = rospy.get_param("/mirte/keypad")
             self.keypad_services = {}
             for sensor in keypad_sensors:
-                self.keypad_services[sensor] = rospy.ServiceProxy('/zoef/get_keypad_' + keypad_sensors[sensor]["name"], GetKeypad, persistent=True)
+                self.keypad_services[sensor] = rospy.ServiceProxy('/mirte/get_keypad_' + keypad_sensors[sensor]["name"], GetKeypad, persistent=True)
 
-        self.get_pin_value_service = rospy.ServiceProxy('/zoef/get_pin_value', GetPinValue, persistent=True)
-        self.set_pin_value_service = rospy.ServiceProxy('/zoef/set_pin_value', SetPinValue, persistent=True)
-        self.set_led_value_service = rospy.ServiceProxy('/zoef/set_led_value', SetLEDValue, persistent=True)
+        self.get_pin_value_service = rospy.ServiceProxy('/mirte/get_pin_value', GetPinValue, persistent=True)
+        self.set_pin_value_service = rospy.ServiceProxy('/mirte/set_pin_value', SetPinValue, persistent=True)
+        self.set_led_value_service = rospy.ServiceProxy('/mirte/set_led_value', SetLEDValue, persistent=True)
 
 
         signal.signal(signal.SIGINT, self.signal_handler)
@@ -240,6 +240,6 @@ class Robot():
 # We need a special function to initiate the Robot() because the main.py need to call the 
 # init_node() (see: https://answers.ros.org/question/266612/rospy-init_node-inside-imported-file/)
 def createRobot():
-    global zoef
-    zoef = Robot()
-    return zoef
+    global mirte
+    mirte = Robot()
+    return mirte
