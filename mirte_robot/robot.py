@@ -46,11 +46,12 @@ class Robot():
         #self.stop_controller_service()
 
         # Service for motor speed
+        self.motors = {}
         if rospy.has_param("/mirte/motor"):
-            motors = rospy.get_param("/mirte/motor")
+            self.motors = rospy.get_param("/mirte/motor")
             self.motor_services = {}
-            for motor in motors:
-                self.motor_services[motor] = rospy.ServiceProxy('/mirte/set_' + motors[motor]["name"] + '_speed', SetMotorSpeed, persistent=True)
+            for motor in self.motors:
+                self.motor_services[motor] = rospy.ServiceProxy('/mirte/set_' + self.motors[motor]["name"] + '_speed', SetMotorSpeed, persistent=True)
 
         # Service for motor speed
         if rospy.has_param("/mirte/servo"):
@@ -228,10 +229,8 @@ class Robot():
         return move.finished
 
     def stop(self):
-        self.setMotorSpeed("left", 0)
-        self.setMotorSpeed("right", 0)
-        #self.start_controller_service() # this cen be replaced as soon as the controller is working properly
-        #self.move(0, 0)
+        for motor in self.motors:
+           self.setMotorSpeed(self.motors[motor]["name"], 0)
 
     def signal_handler(self, sig, frame):
         self.stop()
