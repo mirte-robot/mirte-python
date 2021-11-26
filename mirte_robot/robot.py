@@ -24,6 +24,13 @@ from std_srvs.srv import *
 mirte = {}
 
 class Robot():
+    """ Robot API
+
+        This class allows you to control the robot from Python. The getters and setters
+        are just wrappers calling ROS topics or services.
+    """
+
+
     def __init__(self):
         # Stop robot when exited
         atexit.register(self.stop)
@@ -60,14 +67,7 @@ class Robot():
             for servo in servos:
                 self.servo_services[servo] = rospy.ServiceProxy('/mirte/set_' + servos[servo]["name"] + '_servo_angle', SetServoAngle, persistent=True)
 
-
-#        self.text_publisher = rospy.Publisher('display_text', String, queue_size=10)
-#        self.velocity_publisher = rospy.Publisher('/mobile_base_controller/cmd_vel', Twist, queue_size=10)
-
         rospy.init_node('mirte_python_api', anonymous=False)
-        # Services
-#        self.move_service = rospy.ServiceProxy('mirte_navigation/move', Move)
-#        self.turn_service = rospy.ServiceProxy('mirte_navigation/turn', Turn)
 
         ## Sensors
         ## The sensors are now just using a blocking service call. This is intentionally
@@ -122,16 +122,27 @@ class Robot():
 
         self.get_pin_value_service = rospy.ServiceProxy('/mirte/get_pin_value', GetPinValue, persistent=True)
         self.set_pin_value_service = rospy.ServiceProxy('/mirte/set_pin_value', SetPinValue, persistent=True)
-        self.set_led_value_service = rospy.ServiceProxy('/mirte/set_led_value', SetLEDValue, persistent=True)
 
 
-        signal.signal(signal.SIGINT, self.signal_handler)
-        signal.signal(signal.SIGTERM, self.signal_handler)
+        signal.signal(signal.SIGINT, self._signal_handler)
+        signal.signal(signal.SIGTERM, self._signal_handler)
 
     def getTimestamp(self):
+        """Gets the elapsed time in seconds since the initialization fo the Robot.
+
+        Returns:
+            float: Time in seconds since the initialization of the Robot. Fractions of a second may be present if the system clock provides them.
+        """
+
         return time.time() - self.begin_time
 
     def getTimeSinceLastCall(self):
+        """Gets the elapsed time in seconds since the last call to this function.
+
+        Returns:
+            float: Time in seconds since last call to this function. Fractions of a second may be present if the system clock provides them.
+        """
+
         last_call = self.last_call
         self.last_call = time.time()
         if last_call == 0:
@@ -140,10 +151,32 @@ class Robot():
            return time.time() - last_call
 
     def getDistance(self, sensor):
+        """Gets data from a HC-SR04 distance sensor: calculated distance in meters.
+
+        Parameters:
+            sensor (str): The name of the sensor as defined in the configuration.
+
+        Returns:
+            int: Range in meters measured by the HC-SR04 sensor.
+
+        Warning:
+            A maximum of 6 distance sensors is supported.
+        """
+
+
         dist = self.distance_services[sensor]()
         return dist.data
 
     def getIntensity(self, sensor, type="analog"):
+        """Gets data from an intensity sensor.
+
+        Parameters:
+            sensor (str): The name of the sensor as defined in the configuration.
+            type (str): The type of the sensor (either 'analog' or 'digital').
+
+        Returns:
+            int: Value of the sensor (0-255 when analog, 0-1 when digital).
+        """
         if type == "analog":
            value = self.intensity_services[sensor]()
         if type == "digital":
@@ -151,94 +184,177 @@ class Robot():
         return value.data
 
     def getEncoder(self, sensor):
+        """Gets data from an encoder: every encoder pulse increments the counter.
+
+        Parameters:
+            sensor (str): The name of the sensor as defined in the configuration.
+
+        Returns:
+            int: Number of encoder pulses since boot of the robot.
+        """
+
         value = self.encoder_services[sensor]()
         return value.data
 
-    def setPinMode(self, pin, mode, type):
-        value = self.set_pin_mode_service(pin, mode, type)
-        return value.status
-
     def getKeypad(self, keypad):
+        """Gets the value of the keypad: the button that is pressed.
+
+        Parameters:
+            keypad (str): The name of the sensor as defined in the configuration.
+
+        Returns:
+            str: The name of the button ('up', 'down', 'left', 'right', 'enter').
+        """
+
+
         value = self.keypad_services[keypad]()
         return value.data
 
     def getAnalogPinValue(self, pin):
+        """Gets the input value of an analog pin.
+
+        Parameters:
+            pin (str): The pin number of an analog pin as printed on the microcontroller.
+
+        Returns:
+            int: Value between 0-255.
+        """
+
         value = self.get_pin_value_service(str(pin), "analog")
         return value.data
 
     def setAnalogPinValue(self, pin, value):
+        """Sets the output value of an analog pin (PWM).
+
+        Parameters:
+            pin (str): The pin number of an analog pin as printed on the microcontroller.
+            value (int): Value between 0-255.
+        """
+
         value = self.set_pin_value_service(str(pin), "analog", value)
         return value.status
 
     def setOLEDText(self, oled, text):
+        """Shows text on the OLED.
+
+        Parameters:
+            oled (str): The name of the sensor as defined in the configuration.
+            text (str): String to be shown on the 128x64 OLED.
+        """
         value = self.oled_services[oled]('text', str(text))
         return value.status
 
     def setOLEDImage(self, oled, image):
+        """Shows image on the OLED.
+
+        Parameters:
+            oled (str): The name of the sensor as defined in the configuration.
+            image (str): Image name as defined in the images folder of the mirte-oled-images repository (excl file extension).
+        """
+
         value = self.oled_services[oled]('image', image)
         return value.status
 
     def setOLEDAnimation(self, oled, animation):
+        """Shows animation on the OLED.
+
+        Parameters:
+            oled (str): The name of the sensor as defined in the configuration.
+            animation (str): Animation (directory) name as defined in the animations folder of the mirte-oled-images repository.
+        """
+
         value = self.oled_services[oled]('animation', animation)
         return value.status
 
     def getDigitalPinValue(self, pin):
+        """Gets the input value of a digital pin.
+
+        Parameters:
+            pin (str): The pin number of an analog pin as printed on the microcontroller.
+
+        Returns:
+            bool: The input value.
+        """
+
         value = self.get_pin_value_service(str(pin), "digital")
         return value.data
 
-    def setLED(self, value):
-        value = self.set_led_value_service(value)
-        return value.status
-
     def setServoAngle(self, servo, angle):
+        """Sets the angle of a servo.
+
+        Parameters:
+            servo (str): The name of the sensor as defined in the configuration.
+            angle (int): The angle of the servo (range [0-360], but some servos
+                         might be hysically limited to [0-180].
+
+        Returns:
+            bool: True if set successfully.
+
+        Warning:
+            The servo uses the Servo library from Arduino (through Telemetrix). This also
+            means that, when a servo is used and the library is enabled, the last timer on
+            the MCU will be used for timing of the servos. This timer therefore can not be
+            used for PWM anymore. For Arduino Nano/Uno this means pins D9 and D10 will not
+            have PWM anymore. For the SMT32 this means pins A1, A2, A3, A15, B3, B10, and B11
+            will not have PWM anymore.
+
+        Warning:
+            A maximum of 12 servos is supported.
+        """
+
         value = self.servo_services[servo](angle)
         return value.status
 
     def setDigitalPinValue(self, pin, value):
+        """Sets the output value of a digital pin.
+
+        Parameters:
+            pin (str): The pin number of an analog pin as printed on the microcontroller.
+            value (bool): Value to set.
+        """
         value = self.set_pin_value_service(str(pin), "digital", value)
         return value.status
 
-    def getVirtualColor(self, direction):
-        virtual_color_getter = rospy.ServiceProxy('get_virtual_color', get_virtual_color)
-        value = virtual_color_getter(direction)
-        return value.data
-
-    def getBarcode(self):
-        barcode_getter = rospy.ServiceProxy('get_barcode', get_barcode)
-        value = barcode_getter()
-        return value.data
-
-    def displayText(self, text):
-        rospy.loginfo(text)
-        self.text_publisher.publish(text)
-
     def setMotorSpeed(self, motor, value):
+        """Sets the speed of the motor.
+
+        Parameters:
+            motor (str): The name of the sensor as defined in the configuration.
+            value (int): The 'directional duty cycle' (range [-100, 100]) of the PWM 
+                         signal (-100: full backward, 0: stand still, 100: full forward).
+
+        Returns:
+            bool: True if set successfully.
+        """
+
         motor = self.motor_services[motor](value)
         return motor.status
 
-    def getEncoderTicks(self, sensor, time_delta):
-        encoder = self.motor_services[sensor](time_delta)
-        return ecnoder.ticks
-
-    def turn(self, angle = (math.pi / 2), speed = (math.pi / 10)):
-        turn = self.turn_service(angle, speed)
-        return turn.finished
-
-    def move(self, distance = 0.1, speed = 0.5):
-        move = self.move_service(distance, speed)
-        return move.finished
-
     def stop(self):
+        """Stops all DC motors defined in the configuration
+
+        Note:
+            This function is always called when a script exits (either by the user
+            or when it finished.
+
+        """
+
         for motor in self.motors:
            self.setMotorSpeed(self.motors[motor]["name"], 0)
 
-    def signal_handler(self, sig, frame):
+    def _signal_handler(self, sig, frame):
         self.stop()
         sys.exit()
 
-# We need a special function to initiate the Robot() because the main.py need to call the 
+# We need a special function to initiate the Robot() because the main.py need to call the
 # init_node() (see: https://answers.ros.org/question/266612/rospy-init_node-inside-imported-file/)
 def createRobot():
+    """Creates and return instance of the robot class.
+
+    Returns:
+       Robot: The initialize Robot class.
+    """
+
     global mirte
     mirte = Robot()
     return mirte
