@@ -2,6 +2,7 @@
 #TODO: for debugging purposes we could *also* listen to keyboard events
 
 import sys
+import logging
 from importlib.machinery import SourceFileLoader
 import time
 import multiprocessing
@@ -74,6 +75,6 @@ def message_received(client, server, message):
       do_step.value = False
       stop_mirte()
 
-server = WebsocketServer(host="0.0.0.0", port=8001)
+server = WebsocketServer(host="0.0.0.0", port=8001, loglevel=logging.CRITICAL)
 server.set_fn_message_received(message_received)
 server.serve_forever()
