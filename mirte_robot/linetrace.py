@@ -2,6 +2,7 @@
 #TODO: for debugging purposes we could *also* listen to keyboard events
 
 import sys
+import os
 import logging
 from importlib.machinery import SourceFileLoader
 import time
@@ -36,6 +37,11 @@ def load_mirte_module(stepper, do_step):
        if not filename.endswith('mirte.py'):
           return
        return trace_lines
+
+    # Send the PID to the web interface and give it some time to call strace on this process
+    # to see the output of this script
+    server.send_message_to_all("pid:" + str(os.getpid()))
+    time.sleep(0.1)
 
     sys.settrace(traceit)
     # rospy.init_node() for some reason needs to be called from __main__ when importing in the regular way.
