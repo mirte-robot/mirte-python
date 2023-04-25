@@ -26,7 +26,9 @@ def load_mirte_module(stepper, do_step):
        global do_step
        if event != 'line':
            return
-       server.send_message_to_all(str(frame.f_lineno))
+       # Only return line number to websocket when in step mode
+       if stepper.value:
+          server.send_message_to_all(str(frame.f_lineno))
        while stepper.value and not do_step.value:
           time.sleep(.01)
        do_step.value = False
