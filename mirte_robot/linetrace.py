@@ -68,6 +68,9 @@ def start_mirte():
     process = multiprocessing.Process(target = load_mirte_module, args=(stepper, do_step))
     process.start()
 
+def client_left(client, server):
+    stop_mirte()
+
 def message_received(client, server, message):
    global stepper, do_step
    if message == "b": #break (pause)
@@ -85,4 +88,5 @@ def message_received(client, server, message):
 
 server = WebsocketServer(host="0.0.0.0", port=8001, loglevel=logging.CRITICAL)
 server.set_fn_message_received(message_received)
+server.set_fn_client_left(client_left)
 server.serve_forever()
