@@ -50,7 +50,6 @@ class Robot():
         # the controller is needed, it will be enabled.
         self.stop_controller_service = rospy.ServiceProxy('stop', Empty, persistent=True)
         self.start_controller_service = rospy.ServiceProxy('start', Empty, persistent=True)
-        #self.stop_controller_service()
 
         # Service for motor speed
         self.motors = {}
@@ -329,6 +328,24 @@ class Robot():
 
         motor = self.motor_services[motor](value)
         return motor.status
+
+    def setMotorControl(self, status):
+        """Enables/disables the motor controller. This is enabled on boot, but can
+        be disabled/enabled at runtime. This makes the ROS control node pause,
+        so it will not respond to Twist messages anymore when disabled.
+
+        Parameters:
+            status (bool): To which status the motor controller should be set.
+
+        Returns:
+            none
+        """
+
+        if (status):
+            self.start_controller_service()
+        else:
+            self.stop_controller_service()
+        return
 
     def stop(self):
         """Stops all DC motors defined in the configuration
