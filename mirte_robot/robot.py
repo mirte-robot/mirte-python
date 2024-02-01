@@ -112,12 +112,19 @@ class Robot():
             for sensor in encoder_sensors:
                 self.encoder_services[sensor] = rospy.ServiceProxy('/mirte/get_encoder_' + encoder_sensors[sensor]["name"], GetEncoder, persistent=True)
 
-        # Services for keypad sensores
+        # Services for keypad sensors
         if rospy.has_param("/mirte/keypad"):
             keypad_sensors = rospy.get_param("/mirte/keypad")
             self.keypad_services = {}
             for sensor in keypad_sensors:
                 self.keypad_services[sensor] = rospy.ServiceProxy('/mirte/get_keypad_' + keypad_sensors[sensor]["name"], GetKeypad, persistent=True)
+
+        # Services for color sensors
+        if rospy.has_param("/mirte/color"):
+            color_sensors = rospy.get_param("/mirte/color")
+            self.color_services = {}
+            for sensor in color_sensors:
+                self.color_services[sensor] = rospy.ServiceProxy('/mirte/get_color_' + color_sensors[sensor]["name"], GetColor, persistent=True)
 
         self.get_pin_value_service = rospy.ServiceProxy('/mirte/get_pin_value', GetPinValue, persistent=True)
         self.set_pin_value_service = rospy.ServiceProxy('/mirte/set_pin_value', SetPinValue, persistent=True)
@@ -208,6 +215,19 @@ class Robot():
 
         value = self.keypad_services[keypad]()
         return value.data
+
+    def getColor(self, sensor):
+        """Gets the value of the color sensor.
+
+        Parameters:
+            sensor (str): The name of the sensor as defined in the configuration.
+
+        Returns:
+            {r, g, b, w}: Raw (0-65536) values per R(ed), G(reen), B(lue), and W(hite).
+        """
+
+        value = self.color_services[sensor]()
+        return {'r': value.color.r, 'g': value.color.g, 'b': value.color.b, 'w': value.color.w }
 
     def getAnalogPinValue(self, pin):
         """Gets the input value of an analog pin.
