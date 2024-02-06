@@ -227,7 +227,7 @@ class Robot():
         """
 
         value = self.color_services[sensor]()
-        return {'r': value.color.r, 'g': value.color.g, 'b': value.color.b, 'w': value.color.w }
+        return {'r': value.color.color.r, 'g': value.color.color.g, 'b': value.color.color.b, 'w': value.color.color.w }
 
     def getAnalogPinValue(self, pin):
         """Gets the input value of an analog pin.
