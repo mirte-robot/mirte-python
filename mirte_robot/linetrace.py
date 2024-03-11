@@ -16,9 +16,12 @@ from mirte_robot import robot
 # Global shared memory objects (TODO: check if we need shared memory, why is server working?)
 stepper = multiprocessing.Value('b', True)
 do_step = multiprocessing.Value('b', False)
+is_running = False
 
 def stop_mirte():
+     global is_running
      process.terminate()
+     is_running = False
 
 def load_mirte_module(stepper, do_step):
 
@@ -65,6 +68,10 @@ process = multiprocessing.Process(target = load_mirte_module, args=(stepper, do_
 
 def start_mirte():
     global process
+    # process should already have been killed after stop, or disconnect
+    # but, just in case make sure to stop this
+    if process.is_alive():
+      process.terminate()
     process = multiprocessing.Process(target = load_mirte_module, args=(stepper, do_step))
     process.start()
 
@@ -72,13 +79,15 @@ def client_left(client, server):
     stop_mirte()
 
 def message_received(client, server, message):
-   global stepper, do_step
+   global stepper, do_step, is_running
+
    if message == "b": #break (pause)
       stepper.value = True
    if message == "c": #continue (play)
       stepper.value = False
-      if not process.is_alive():
+      if not is_running:
          start_mirte()
+         is_running = True
    if message == "s": #step (step)
       do_step.value = True
    if message == "e": #exit (stop)
