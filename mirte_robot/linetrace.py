@@ -19,7 +19,9 @@ do_step = multiprocessing.Value('b', False)
 is_running = False
 
 def stop_mirte():
+     global is_running
      process.terminate()
+     is_running = False
 
 def load_mirte_module(stepper, do_step):
 
@@ -91,7 +93,6 @@ def message_received(client, server, message):
    if message == "e": #exit (stop)
       stepper.value = True
       do_step.value = False
-      is_running = False
       stop_mirte()
 
 server = WebsocketServer(host="0.0.0.0", port=8001, loglevel=logging.CRITICAL)
