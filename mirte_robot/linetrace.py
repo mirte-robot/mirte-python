@@ -51,7 +51,7 @@ def load_mirte_module(stepper, do_step, running):
     # Send the PID to the web interface and give it some time to call strace on this process
     # to see the output of this script
     server.send_message_to_all("pid:" + str(os.getpid()))
-    time.sleep(0.1)
+    time.sleep(0.2) #TODO: let client send signal when strace is started
 
     sys.settrace(traceit)
     # rospy.init_node() for some reason needs to be called from __main__ when importing in the regular way.
