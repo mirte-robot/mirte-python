@@ -12,11 +12,11 @@ setuptools.setup(
     description="Python API for the Mirte Robot",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/mirte-robot/mirte_python",
+    url="https://github.com/mirte-robot/mirte-python",
     packages=['mirte_robot'],
     classifiers=[
         "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: Apache Software License",
+        "License :: OSI Approved :: BSD License",
         "Operating System :: OS Independent",
     ],
     python_requires='>=3.6',
