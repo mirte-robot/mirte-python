@@ -124,7 +124,7 @@ class Robot():
             color_sensors = rospy.get_param("/mirte/color")
             self.color_services = {}
             for sensor in color_sensors:
-                self.color_services[sensor] = rospy.ServiceProxy('/mirte/get_color_' + color_sensors[sensor]["name"], GetColor, persistent=True)
+                self.color_services[sensor] = rospy.ServiceProxy('/mirte/get_color_' + color_sensors[sensor]["name"], GetColorHSL, persistent=True)
 
         self.get_pin_value_service = rospy.ServiceProxy('/mirte/get_pin_value', GetPinValue, persistent=True)
         self.set_pin_value_service = rospy.ServiceProxy('/mirte/set_pin_value', SetPinValue, persistent=True)
@@ -223,11 +223,11 @@ class Robot():
             sensor (str): The name of the sensor as defined in the configuration.
 
         Returns:
-            {r, g, b, w}: Raw (0-65536) values per R(ed), G(reen), B(lue), and W(hite).
+            {h, s, l}: Hue (0-360), Saturation (0-1), Lightness.
         """
 
         value = self.color_services[sensor]()
-        return {'r': value.color.color.r, 'g': value.color.color.g, 'b': value.color.color.b, 'w': value.color.color.w }
+        return {'h': value.color.h, 's': value.color.s, 'l': value.color.l }
 
     def getAnalogPinValue(self, pin):
         """Gets the input value of an analog pin.
