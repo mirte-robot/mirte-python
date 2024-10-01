@@ -50,7 +50,6 @@ class Robot():
         # the controller is needed, it will be enabled.
         self.stop_controller_service = rospy.ServiceProxy('stop', Empty, persistent=True)
         self.start_controller_service = rospy.ServiceProxy('start', Empty, persistent=True)
-        #self.stop_controller_service()
 
         # Service for motor speed
         self.motors = {}
@@ -113,12 +112,19 @@ class Robot():
             for sensor in encoder_sensors:
                 self.encoder_services[sensor] = rospy.ServiceProxy('/mirte/get_encoder_' + encoder_sensors[sensor]["name"], GetEncoder, persistent=True)
 
-        # Services for keypad sensores
+        # Services for keypad sensors
         if rospy.has_param("/mirte/keypad"):
             keypad_sensors = rospy.get_param("/mirte/keypad")
             self.keypad_services = {}
             for sensor in keypad_sensors:
                 self.keypad_services[sensor] = rospy.ServiceProxy('/mirte/get_keypad_' + keypad_sensors[sensor]["name"], GetKeypad, persistent=True)
+
+        # Services for color sensors
+        if rospy.has_param("/mirte/color"):
+            color_sensors = rospy.get_param("/mirte/color")
+            self.color_services = {}
+            for sensor in color_sensors:
+                self.color_services[sensor] = rospy.ServiceProxy('/mirte/get_color_' + color_sensors[sensor]["name"], GetColorHSL, persistent=True)
 
         self.get_pin_value_service = rospy.ServiceProxy('/mirte/get_pin_value', GetPinValue, persistent=True)
         self.set_pin_value_service = rospy.ServiceProxy('/mirte/set_pin_value', SetPinValue, persistent=True)
@@ -209,6 +215,19 @@ class Robot():
 
         value = self.keypad_services[keypad]()
         return value.data
+
+    def getColor(self, sensor):
+        """Gets the value of the color sensor.
+
+        Parameters:
+            sensor (str): The name of the sensor as defined in the configuration.
+
+        Returns:
+            {h, s, l}: Hue (0-360), Saturation (0-1), Lightness.
+        """
+
+        value = self.color_services[sensor]()
+        return {'h': value.color.h, 's': value.color.s, 'l': value.color.l }
 
     def getAnalogPinValue(self, pin):
         """Gets the input value of an analog pin.
@@ -329,6 +348,24 @@ class Robot():
 
         motor = self.motor_services[motor](value)
         return motor.status
+
+    def setMotorControl(self, status):
+        """Enables/disables the motor controller. This is enabled on boot, but can
+        be disabled/enabled at runtime. This makes the ROS control node pause,
+        so it will not respond to Twist messages anymore when disabled.
+
+        Parameters:
+            status (bool): To which status the motor controller should be set.
+
+        Returns:
+            none
+        """
+
+        if (status):
+            self.start_controller_service()
+        else:
+            self.stop_controller_service()
+        return
 
     def stop(self):
         """Stops all DC motors defined in the configuration
