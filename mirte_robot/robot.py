@@ -34,7 +34,7 @@ mirte = {}
 # SRV_QOSPROFILE = rclpy.qos.QoSProfile()
 
 # FIXME: Maybe use encapsulation instead to prevent having lots of confusing and non relavent methods.
-class Robot(rclpy.node.Node):
+class Robot:
     """Robot API
 
     This class allows you to control the robot from Python. The getters and setters
@@ -74,7 +74,7 @@ class Robot(rclpy.node.Node):
 
         # This node should be only ran once.
         # No 'anonymous' flag available, so use unix epoch nano seconds to pad name
-        super().__init__(
+        self._node = rclpy.node.Node(
             "_mirte_python_api_" + str(time.time_ns()), 
             namespace=self._machine_namespace,
             start_parameter_services=True
@@ -99,17 +99,17 @@ class Robot(rclpy.node.Node):
         # Call controller_manager/switch_controller service to disable/enable the ROS diff_drive_controller
         # By default this class will control the robot though PWM (controller stopped). Only in case
         # the controller is needed, it will be enabled.
-        self.switch_controller_service = self.create_client(
+        self.switch_controller_service = self._node.create_client(
             SwitchController, "controller_manager/switch_controller"
         ) # TODO: QOS?
 
 
         if ROS_DISTRO[0] >= "i": # Check if the ROS Distro is IRON or newer
               # Not available untill ROS Iron
-            if not self.wait_for_node(self._hardware_namespace + "telemetrix", 10):
-                self.get_logger().fatal(f"Telemetrix node at '{self.get_namespace() + self._hardware_namespace  + 'telemetrix'}' was not found! Aborting")
+            if not self._node.wait_for_node(self._hardware_namespace + "telemetrix", 10):
+                self._node.get_logger().fatal(f"Telemetrix node at '{self._node.get_namespace() + self._hardware_namespace  + 'telemetrix'}' was not found! Aborting")
                 exit(-1)
-        list_parameters: rclpy.client.Client = self.create_client(
+        list_parameters: rclpy.client.Client = self._node.create_client(
             ListParameters, self._hardware_namespace + "/telemetrix/list_parameters"
         )
 
@@ -119,7 +119,7 @@ class Robot(rclpy.node.Node):
         motors_future: rclpy.Future = list_parameters.call_async(
             ListParameters.Request(prefixes=["motor"], depth=3)
         )
-        rclpy.spin_until_future_complete(self, motors_future)
+        rclpy.spin_until_future_complete(self._node, motors_future)
 
         motor_prefixes: list[str] = motors_future.result().result.prefixes
         if len(motor_prefixes) > 0:
@@ -128,8 +128,8 @@ class Robot(rclpy.node.Node):
             ]
             self.motor_services = {}
             for motor in self.motors:
-                self.get_logger().info(f"Created service client for motor [{motor}]")
-                self.motor_services[motor] = self.create_client(
+                self._node.get_logger().info(f"Created service client for motor [{motor}]")
+                self.motor_services[motor] = self._node.create_client(
                     SetMotorSpeed, self._hardware_namespace + "/set_" + motor + "_speed"
                 )  # TODO: QOS
 
@@ -140,15 +140,15 @@ class Robot(rclpy.node.Node):
             ListParameters.Request(prefixes=["servo"], depth=3)
         )
 
-        rclpy.spin_until_future_complete(self, servo_future)
+        rclpy.spin_until_future_complete(self._node, servo_future)
 
         servo_prefixes = servo_future.result().result.prefixes
         if len(servo_prefixes) > 0:
             servos = [servo_prefix.split(".")[-1] for servo_prefix in servo_prefixes]
             self.servo_services: dict[str, rclpy.client.Client] = {}
             for servo in servos:
-                self.get_logger().info(f"Created service client for servo [{servo}]")
-                self.servo_services[servo] = self.create_client(
+                self._node.get_logger().info(f"Created service client for servo [{servo}]")
+                self.servo_services[servo] = self._node.create_client(
                     SetServoAngle, self._hardware_namespace + "/set_" + servo + "_servo_angle"
                 )  # TODO: QOS FOR persistent=True
 
@@ -164,17 +164,17 @@ class Robot(rclpy.node.Node):
             ListParameters.Request(prefixes=["distance"], depth=3)
         )
 
-        rclpy.spin_until_future_complete(self, distance_future)
+        rclpy.spin_until_future_complete(self._node, distance_future)
 
         distance_prefixes = distance_future.result().result.prefixes
         if len(distance_prefixes) > 0:
             distance_sensors = [sensor.split(".")[-1] for sensor in distance_prefixes]
             self.distance_services = {}
             for sensor in distance_sensors:
-                self.get_logger().info(
+                self._node.get_logger().info(
                     f"Created service client for distance sensor [{sensor}]"
                 )
-                self.distance_services[sensor] = self.create_client(
+                self.distance_services[sensor] = self._node.create_client(
                     GetDistance, self._hardware_namespace + "/get_distance_" + sensor
                 )  # TODO: QOS
 
@@ -186,7 +186,7 @@ class Robot(rclpy.node.Node):
             ListParameters.Request(prefixes=["oled"], depth=4)
         )
 
-        rclpy.spin_until_future_complete(self, oled_future)
+        rclpy.spin_until_future_complete(self._node, oled_future)
 
         oled_prefixes = oled_future.result().result.prefixes
         # FIXME: Not use legacy service
@@ -194,8 +194,8 @@ class Robot(rclpy.node.Node):
             oleds = [oled.split(".")[-1] for oled in oled_prefixes]
             self.oled_services = {}
             for oled in oleds:
-                self.get_logger().info(f"Created service client for oled [{oled}]")
-                self.oled_services[oled] = self.create_client(
+                self._node.get_logger().info(f"Created service client for oled [{oled}]")
+                self.oled_services[oled] = self._node.create_client(
                     SetOLEDImageLegacy, self._hardware_namespace + "/set_" + oled + "_image_legacy"
                 )  # TODO: QOS
 
@@ -204,7 +204,7 @@ class Robot(rclpy.node.Node):
             ListParameters.Request(prefixes=["intensity"], depth=3)
         )
 
-        rclpy.spin_until_future_complete(self, intensity_future)
+        rclpy.spin_until_future_complete(self._node, intensity_future)
 
         intensity_prefixes = intensity_future.result().result.prefixes
         if len(intensity_prefixes) > 0:
@@ -218,18 +218,18 @@ class Robot(rclpy.node.Node):
             service_list = set(
                 [
                     service
-                    for service, service_type in self.get_service_names_and_types()
+                    for service, service_type in self._node.get_service_names_and_types()
                 ]
             )
             for sensor in intensity_sensors:
                 if self._hardware_namespace + "/get_intensity_" + sensor in service_list:
-                    self.get_logger().info(f"Created service client for intensity [{sensor}]")
-                    self.intensity_services[sensor] = self.create_client(
+                    self._node.get_logger().info(f"Created service client for intensity [{sensor}]")
+                    self.intensity_services[sensor] = self._node.create_client(
                         GetIntensity, self._hardware_namespace + "/get_intensity_" + sensor
                     )  # TODO: QOS
                 if self._hardware_namespace + "/get_intensity_" + sensor + "_digital" in service_list:
-                    self.get_logger().info(f"Created service client for digital intensity [{sensor}]")
-                    self.intensity_services[sensor + "_digital"] = self.create_client(
+                    self._node.get_logger().info(f"Created service client for digital intensity [{sensor}]")
+                    self.intensity_services[sensor + "_digital"] = self._node.create_client(
                         GetIntensityDigital,
                         self._hardware_namespace + "/get_intensity_" + sensor + "_digital",
                     )  # TODO: QOS
@@ -239,15 +239,15 @@ class Robot(rclpy.node.Node):
             ListParameters.Request(prefixes=["encoder"], depth=3)
         )
 
-        rclpy.spin_until_future_complete(self, encoder_future)
+        rclpy.spin_until_future_complete(self._node, encoder_future)
 
         encoder_prefixes = encoder_future.result().result.prefixes
         if len(encoder_prefixes) > 0:
             encoder_sensors = [sensor.split(".")[-1] for sensor in encoder_prefixes]
             self.encoder_services = {}
             for sensor in encoder_sensors:
-                self.get_logger().info(f"Created service client for encoder [{sensor}]")
-                self.encoder_services[sensor] = self.create_client(
+                self._node.get_logger().info(f"Created service client for encoder [{sensor}]")
+                self.encoder_services[sensor] = self._node.create_client(
                     GetEncoder,
                     self._hardware_namespace + "/get_encoder_" + sensor,
                 )  # TODO: QOS for persistent=True,
@@ -257,15 +257,15 @@ class Robot(rclpy.node.Node):
             ListParameters.Request(prefixes=["keypad"], depth=3)
         )
 
-        rclpy.spin_until_future_complete(self, keypad_future)
+        rclpy.spin_until_future_complete(self._node, keypad_future)
 
         keypad_prefixes = keypad_future.result().result.prefixes
         if len(keypad_prefixes) > 0:
             keypad_sensors = [sensor.split(".")[-1] for sensor in keypad_prefixes]
             self.keypad_services = {}
             for sensor in keypad_sensors:
-                self.get_logger().info(f"Created service client for keypad [{sensor}]")
-                self.keypad_services[sensor] = self.create_client(
+                self._node.get_logger().info(f"Created service client for keypad [{sensor}]")
+                self.keypad_services[sensor] = self._node.create_client(
                     GetKeypad, self._hardware_namespace + "/get_keypad_" + sensor
                 )  # TODO: Add QOS for persitent=true
 
@@ -274,24 +274,24 @@ class Robot(rclpy.node.Node):
             ListParameters.Request(prefixes=["color"], depth=3)
         )
 
-        rclpy.spin_until_future_complete(self, color_future)
+        rclpy.spin_until_future_complete(self._node, color_future)
 
         color_prefixes = color_future.result().result.prefixes
         if len(color_prefixes) > 0:
             color_sensors = [sensor.split(".")[-1] for sensor in color_prefixes]
             self.color_services = {}
             for sensor in color_sensors:
-                self.get_logger().info(
+                self._node.get_logger().info(
                     f"Created service client for color sensor [{sensor}]"
                 )
-                self.color_services[sensor] = self.create_client(
+                self.color_services[sensor] = self._node.create_client(
                     GetColor, self._hardware_namespace + "/get_color_" + sensor
                 )  # TODO: Add QOS persitent
 
-        self.get_pin_value_service = self.create_client(
+        self.get_pin_value_service = self._node.create_client(
             GetPinValue, self._hardware_namespace + "/get_pin_value"
         )  # TODO: Add QOS persitent
-        self.set_pin_value_service = self.create_client(
+        self.set_pin_value_service = self._node.create_client(
             SetPinValue, self._hardware_namespace + "/set_pin_value"
         )  # TODO: Add QoS persistent=True
 
@@ -299,7 +299,7 @@ class Robot(rclpy.node.Node):
         client.wait_for_service()
         
         future_response = client.call_async(request)
-        rclpy.spin_until_future_complete(self, future_response)
+        rclpy.spin_until_future_complete(self._node, future_response)
         return future_response.result()
     
     # FIXME: Check if services aer avaiable, if not don't hard error on:
@@ -605,5 +605,5 @@ if __name__ == "__main__":
     print("next")
     rob.setServoAngle("right", 90)
 
-    rob.setOLEDText("right","laar")
+    rob.setOLEDText("right", "laar")
 
