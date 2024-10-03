@@ -5,14 +5,14 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="mirte_robot",
-    install_requires=["websocket_server", "rospkg"],
+    install_requires=["websocket_server", "rclpy"], # TODO: Require mirte_msgs? rcl_interfaces? controller_manager_msgs?
     version="0.1.0",
     author="Martin Klomp",
     author_email="m.klomp@tudelft.nl",
     description="Python API for the Mirte Robot",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/zoef-robot/zoef_python",
+    url="https://github.com/mirte-robot/mirte_python",
     packages=['mirte_robot'],
     classifiers=[
         "Programming Language :: Python :: 3",
