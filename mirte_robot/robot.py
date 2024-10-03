@@ -80,7 +80,6 @@ class Robot(rclpy.node.Node):
             start_parameter_services=True
         )
 
-
         # Stop robot when exited
         rclpy.get_default_context().on_shutdown(self._at_exit)
 
@@ -105,7 +104,7 @@ class Robot(rclpy.node.Node):
         ) # TODO: QOS?
 
 
-        if ROS_DISTRO[0] >= "i": # Chekc if the ROS Distro is IRON or newer
+        if ROS_DISTRO[0] >= "i": # Check if the ROS Distro is IRON or newer
               # Not available untill ROS Iron
             if not self.wait_for_node(self._hardware_namespace + "telemetrix", 10):
                 self.get_logger().fatal(f"Telemetrix node at '{self.get_namespace() + self._hardware_namespace  + 'telemetrix'}' was not found! Aborting")
@@ -572,7 +571,6 @@ class Robot(rclpy.node.Node):
             or when it finished.
 
         """
-        print("STOPPED")
         for motor in self.motors:
             self.setMotorSpeed(motor, 0)
 
