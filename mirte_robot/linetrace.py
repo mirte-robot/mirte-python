@@ -9,8 +9,8 @@ import time
 import multiprocessing
 from websocket_server import WebsocketServer
 
-# Already load rospy (whicht takes long) and robot, so mirte.py does not need to do this anymore
-import rospy
+# Already load rclpy (whicht takes long) and robot, so mirte.py does not need to do this anymore
+import rclpy
 from mirte_robot import robot
 
 # Global shared memory objects (TODO: check if we need shared memory, why is server working?)
