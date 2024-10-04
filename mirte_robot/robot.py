@@ -22,7 +22,8 @@ from mirte_msgs.srv import (
     GetKeypad,
     GetPinValue,
     SetMotorSpeed,
-    SetOLEDImageLegacy,
+    SetOLEDFile,
+    SetOLEDText,
     SetPinValue,
     SetServoAngle,
 )
@@ -30,10 +31,9 @@ from rcl_interfaces.srv import ListParameters
 
 mirte = {}
 
-# TODO: Make it equivalent to ROS 1 persistant
-# SRV_QOSPROFILE = rclpy.qos.QoSProfile()
+# No QoS Profiles are not set, but this might not be required, since they might already behave like ROS 1 persistant.
 
-# FIXME: Maybe use encapsulation instead to prevent having lots of confusing and non relavent methods.
+
 class Robot:
     """Robot API
 
@@ -46,7 +46,9 @@ class Robot:
     # This should only be run once, however this can not be prevented from the web interface.
     # There for the node is also anonymized with the current time.
 
-    def __init__(self, machine_namespace: Optional[str] = None, hardware_namespace: str = "io"):
+    def __init__(
+        self, machine_namespace: Optional[str] = None, hardware_namespace: str = "io"
+    ):
         """Intialize the Mirte Robot API
 
         Parameters:
@@ -75,9 +77,9 @@ class Robot:
         # This node should be only ran once.
         # No 'anonymous' flag available, so use unix epoch nano seconds to pad name
         self._node = rclpy.node.Node(
-            "_mirte_python_api_" + str(time.time_ns()), 
+            "_mirte_python_api_" + str(time.time_ns()),
             namespace=self._machine_namespace,
-            start_parameter_services=True
+            start_parameter_services=True,
         )
 
         # Stop robot when exited
@@ -85,7 +87,6 @@ class Robot:
 
         self.CONTROLLER = "diffbot_base_controller"
 
-        # FIXME: Is this needed
         self.PWM = 3  # PrivateConstants.PWM when moving to Python3
         self.INPUT = 0
         self.OUTPUT = 1
@@ -101,13 +102,16 @@ class Robot:
         # the controller is needed, it will be enabled.
         self.switch_controller_service = self._node.create_client(
             SwitchController, "controller_manager/switch_controller"
-        ) # TODO: QOS?
+        )
 
-
-        if ROS_DISTRO[0] >= "i": # Check if the ROS Distro is IRON or newer
-              # Not available untill ROS Iron
-            if not self._node.wait_for_node(self._hardware_namespace + "telemetrix", 10):
-                self._node.get_logger().fatal(f"Telemetrix node at '{self._node.get_namespace() + self._hardware_namespace  + 'telemetrix'}' was not found! Aborting")
+        if ROS_DISTRO[0] >= "i":  # Check if the ROS Distro is IRON or newer
+            # Not available untill ROS Iron
+            if not self._node.wait_for_node(
+                self._hardware_namespace + "telemetrix", 10
+            ):
+                self._node.get_logger().fatal(
+                    f"Telemetrix node at '{self._node.get_namespace() + self._hardware_namespace  + 'telemetrix'}' was not found! Aborting"
+                )
                 exit(-1)
         list_parameters: rclpy.client.Client = self._node.create_client(
             ListParameters, self._hardware_namespace + "/telemetrix/list_parameters"
@@ -115,7 +119,6 @@ class Robot:
 
         # Service for motor speed
         self.motors = {}  # FIXME: Is self.motors used?
-        # TODO: Does the `mirte` prefix belong here.
         motors_future: rclpy.Future = list_parameters.call_async(
             ListParameters.Request(prefixes=["motor"], depth=3)
         )
@@ -128,14 +131,15 @@ class Robot:
             ]
             self.motor_services = {}
             for motor in self.motors:
-                self._node.get_logger().info(f"Created service client for motor [{motor}]")
+                self._node.get_logger().info(
+                    f"Created service client for motor [{motor}]"
+                )
                 self.motor_services[motor] = self._node.create_client(
                     SetMotorSpeed, self._hardware_namespace + "/set_" + motor + "_speed"
-                )  # TODO: QOS
+                )
 
             # Service for motor speed
 
-        # TODO: Does the `mirte` prefix belong here.
         servo_future = list_parameters.call_async(
             ListParameters.Request(prefixes=["servo"], depth=3)
         )
@@ -147,10 +151,13 @@ class Robot:
             servos = [servo_prefix.split(".")[-1] for servo_prefix in servo_prefixes]
             self.servo_services: dict[str, rclpy.client.Client] = {}
             for servo in servos:
-                self._node.get_logger().info(f"Created service client for servo [{servo}]")
+                self._node.get_logger().info(
+                    f"Created service client for servo [{servo}]"
+                )
                 self.servo_services[servo] = self._node.create_client(
-                    SetServoAngle, self._hardware_namespace + "/set_" + servo + "_servo_angle"
-                )  # TODO: QOS FOR persistent=True
+                    SetServoAngle,
+                    self._hardware_namespace + "/set_" + servo + "_servo_angle",
+                )
 
         ## Sensors
         ## The sensors are now just using a blocking service call. This is intentionally
@@ -176,28 +183,33 @@ class Robot:
                 )
                 self.distance_services[sensor] = self._node.create_client(
                     GetDistance, self._hardware_namespace + "/get_distance_" + sensor
-                )  # TODO: QOS
+                )
 
-
-        # FIXME: Current parser does not play nice with this method
         # Services for oled
         oled_future = list_parameters.call_async(
-            # Depth needs to be 4 since it is a module.
-            ListParameters.Request(prefixes=["oled"], depth=4)
+            ListParameters.Request(prefixes=["oled"], depth=3)
         )
 
         rclpy.spin_until_future_complete(self._node, oled_future)
 
         oled_prefixes = oled_future.result().result.prefixes
-        # FIXME: Not use legacy service
         if len(oled_prefixes) > 0:
             oleds = [oled.split(".")[-1] for oled in oled_prefixes]
             self.oled_services = {}
             for oled in oleds:
-                self._node.get_logger().info(f"Created service client for oled [{oled}]")
-                self.oled_services[oled] = self._node.create_client(
-                    SetOLEDImageLegacy, self._hardware_namespace + "/set_" + oled + "_image_legacy"
-                )  # TODO: QOS
+                self._node.get_logger().info(
+                    f"Created service client for oled [{oled}]"
+                )
+                self.oled_services[oled] = {
+                    "text": self._node.create_client(
+                        SetOLEDText,
+                        self._hardware_namespace + "/oled/set_" + oled + "_text",
+                    ),
+                    "file": self._node.create_client(
+                        SetOLEDFile,
+                        self._hardware_namespace + "/oled/set_" + oled + "_file",
+                    ),
+                }
 
         # Services for intensity sensors (TODO: how to expose the digital version?)
         intensity_future = list_parameters.call_async(
@@ -222,17 +234,33 @@ class Robot:
                 ]
             )
             for sensor in intensity_sensors:
-                if self._hardware_namespace + "/get_intensity_" + sensor in service_list:
-                    self._node.get_logger().info(f"Created service client for intensity [{sensor}]")
+                if (
+                    self._hardware_namespace + "/get_intensity_" + sensor
+                    in service_list
+                ):
+                    self._node.get_logger().info(
+                        f"Created service client for intensity [{sensor}]"
+                    )
                     self.intensity_services[sensor] = self._node.create_client(
-                        GetIntensity, self._hardware_namespace + "/get_intensity_" + sensor
-                    )  # TODO: QOS
-                if self._hardware_namespace + "/get_intensity_" + sensor + "_digital" in service_list:
-                    self._node.get_logger().info(f"Created service client for digital intensity [{sensor}]")
-                    self.intensity_services[sensor + "_digital"] = self._node.create_client(
-                        GetIntensityDigital,
-                        self._hardware_namespace + "/get_intensity_" + sensor + "_digital",
-                    )  # TODO: QOS
+                        GetIntensity,
+                        self._hardware_namespace + "/get_intensity_" + sensor,
+                    )
+                if (
+                    self._hardware_namespace + "/get_intensity_" + sensor + "_digital"
+                    in service_list
+                ):
+                    self._node.get_logger().info(
+                        f"Created service client for digital intensity [{sensor}]"
+                    )
+                    self.intensity_services[sensor + "_digital"] = (
+                        self._node.create_client(
+                            GetIntensityDigital,
+                            self._hardware_namespace
+                            + "/get_intensity_"
+                            + sensor
+                            + "_digital",
+                        )
+                    )
 
         # Services for encoder sensors
         encoder_future = list_parameters.call_async(
@@ -246,11 +274,13 @@ class Robot:
             encoder_sensors = [sensor.split(".")[-1] for sensor in encoder_prefixes]
             self.encoder_services = {}
             for sensor in encoder_sensors:
-                self._node.get_logger().info(f"Created service client for encoder [{sensor}]")
+                self._node.get_logger().info(
+                    f"Created service client for encoder [{sensor}]"
+                )
                 self.encoder_services[sensor] = self._node.create_client(
                     GetEncoder,
                     self._hardware_namespace + "/get_encoder_" + sensor,
-                )  # TODO: QOS for persistent=True,
+                )
 
         # Services for keypad sensors
         keypad_future = list_parameters.call_async(
@@ -264,10 +294,12 @@ class Robot:
             keypad_sensors = [sensor.split(".")[-1] for sensor in keypad_prefixes]
             self.keypad_services = {}
             for sensor in keypad_sensors:
-                self._node.get_logger().info(f"Created service client for keypad [{sensor}]")
+                self._node.get_logger().info(
+                    f"Created service client for keypad [{sensor}]"
+                )
                 self.keypad_services[sensor] = self._node.create_client(
                     GetKeypad, self._hardware_namespace + "/get_keypad_" + sensor
-                )  # TODO: Add QOS for persitent=true
+                )
 
         # Services for color sensors
         color_future = list_parameters.call_async(
@@ -276,6 +308,7 @@ class Robot:
 
         rclpy.spin_until_future_complete(self._node, color_future)
 
+        # FIXME: Add color sensor from v0.1.1
         color_prefixes = color_future.result().result.prefixes
         if len(color_prefixes) > 0:
             color_sensors = [sensor.split(".")[-1] for sensor in color_prefixes]
@@ -286,23 +319,25 @@ class Robot:
                 )
                 self.color_services[sensor] = self._node.create_client(
                     GetColor, self._hardware_namespace + "/get_color_" + sensor
-                )  # TODO: Add QOS persitent
+                )
 
         self.get_pin_value_service = self._node.create_client(
             GetPinValue, self._hardware_namespace + "/get_pin_value"
-        )  # TODO: Add QOS persitent
+        )
         self.set_pin_value_service = self._node.create_client(
             SetPinValue, self._hardware_namespace + "/set_pin_value"
-        )  # TODO: Add QoS persistent=True
+        )
 
-    def _call_service(self, client: rclpy.client.Client, request: rclpy.client.SrvTypeRequest) -> rclpy.client.SrvTypeResponse:
+    def _call_service(
+        self, client: rclpy.client.Client, request: rclpy.client.SrvTypeRequest
+    ) -> rclpy.client.SrvTypeResponse:
         client.wait_for_service()
-        
+
         future_response = client.call_async(request)
         rclpy.spin_until_future_complete(self._node, future_response)
         return future_response.result()
-    
-    # FIXME: Check if services aer avaiable, if not don't hard error on:
+
+    # FIXME: Check if services are avaiable, if not don't hard error on:
     # AttributeError: 'Robot' object has no attribute 'oled_services'. Did you mean: '_services'?
     def _check_available(self, services: dict[str] | None, id: str) -> bool:
         if services is None:
@@ -360,10 +395,13 @@ class Robot:
             int: Value of the sensor (0-255 when analog, 0-1 when digital).
         """
         if type == "analog":
-            value = self._call_service(self.intensity_services[sensor], GetIntensity.Request())
+            value = self._call_service(
+                self.intensity_services[sensor], GetIntensity.Request()
+            )
         if type == "digital":
-            value = self._call_service(self.intensity_services[sensor + "_digital"],
-                GetIntensityDigital.Request()
+            value = self._call_service(
+                self.intensity_services[sensor + "_digital"],
+                GetIntensityDigital.Request(),
             )
         return value.data
 
@@ -422,8 +460,8 @@ class Robot:
             int: Value between 0-255.
         """
 
-        value = self._call_service(self.get_pin_value_service,
-            GetPinValue.Request(pin=str(pin), type="analog")
+        value = self._call_service(
+            self.get_pin_value_service, GetPinValue.Request(pin=str(pin), type="analog")
         )
         return value.data
 
@@ -435,8 +473,9 @@ class Robot:
             value (int): Value between 0-255.
         """
 
-        value = self._call_service(self.set_pin_value_service,
-            SetPinValue.Request(pin=str(pin), type="analog", value=value)
+        value = self._call_service(
+            self.set_pin_value_service,
+            SetPinValue.Request(pin=str(pin), type="analog", value=value),
         )
         return value.status
 
@@ -447,8 +486,8 @@ class Robot:
             oled (str): The name of the sensor as defined in the configuration.
             text (str): String to be shown on the 128x64 OLED.
         """
-        value = self._call_service(self.oled_services[oled],
-            SetOLEDImageLegacy.Request(type="text", value=str(text))
+        value = self._call_service(
+            self.oled_services[oled]["text"], SetOLEDText.Request(text=str(text))
         )
         return value.status
 
@@ -457,11 +496,14 @@ class Robot:
 
         Parameters:
             oled (str): The name of the sensor as defined in the configuration.
-            image (str): Image name as defined in the images folder of the mirte-oled-images repository (excl file extension).
+            image (str): Image name as defined in the images folder of the mirte-oled-images repository (optionally excl file extension).
         """
 
-        value = self._call_service(self.oled_services[oled],
-            SetOLEDImageLegacy.Request(type="image", value=image)
+        value = self._call_service(
+            self.oled_services[oled]["file"],
+            SetOLEDFile.Request(
+                path=(image if ("." in image.split("/")[-1]) else (image + ".png"))
+            ),
         )
         return value.status
 
@@ -473,8 +515,8 @@ class Robot:
             animation (str): Animation (directory) name as defined in the animations folder of the mirte-oled-images repository.
         """
 
-        value = self._call_service(self.oled_services[oled], 
-            SetOLEDImageLegacy.Request(type="animation", value=animation)
+        value = self._call_service(
+            self.oled_services[oled]["file"], SetOLEDFile.Request(path=animation)
         )
         return value.status
 
@@ -488,8 +530,9 @@ class Robot:
             bool: The input value.
         """
 
-        value = self._call_service(self.get_pin_value_service,
-            GetPinValue.Request(pin=str(pin), type="digital")
+        value = self._call_service(
+            self.get_pin_value_service,
+            GetPinValue.Request(pin=str(pin), type="digital"),
         )
         return value.data
 
@@ -515,7 +558,12 @@ class Robot:
         Warning:
             A maximum of 12 servos is supported.
         """
-        value = self._call_service(self.servo_services[servo], SetServoAngle.Request(angle=float(angle),degrees=SetServoAngle.Request.DEGREES))
+        value = self._call_service(
+            self.servo_services[servo],
+            SetServoAngle.Request(
+                angle=float(angle), degrees=SetServoAngle.Request.DEGREES
+            ),
+        )
         return value.status
 
     def setDigitalPinValue(self, pin, value):
@@ -526,8 +574,9 @@ class Robot:
             value (bool): Value to set.
         """
 
-        value = self._call_service(self.set_pin_value_service,
-            SetPinValue.Request(pin=str(pin), type="digital", value=value)
+        value = self._call_service(
+            self.set_pin_value_service,
+            SetPinValue.Request(pin=str(pin), type="digital", value=value),
         )
         return value.status
 
@@ -543,7 +592,9 @@ class Robot:
             bool: True if set successfully.
         """
 
-        motor = self._call_service(self.motor_services[motor], SetMotorSpeed.Request(speed=int(value)))
+        motor = self._call_service(
+            self.motor_services[motor], SetMotorSpeed.Request(speed=int(value))
+        )
         return motor.status
 
     def setMotorControl(self, status):
@@ -558,9 +609,17 @@ class Robot:
             none
         """
         if status:
-            self._call_service(self.switch_controller_service, SwitchController.Request(activate_controllers=[self.CONTROLLER], activate_asap=True))
+            self._call_service(
+                self.switch_controller_service,
+                SwitchController.Request(
+                    activate_controllers=[self.CONTROLLER], activate_asap=True
+                ),
+            )
         else:
-            self._call_service(self.switch_controller_service, SwitchController.Request(deactivate_controllers=[self.CONTROLLER]))
+            self._call_service(
+                self.switch_controller_service,
+                SwitchController.Request(deactivate_controllers=[self.CONTROLLER]),
+            )
         return
 
     def stop(self):
@@ -581,7 +640,9 @@ class Robot:
 
 # We need a special function to initiate the Robot() because the main.py need to call the
 # init_node() (see: https://answers.ros.org/question/266612/rospy-init_node-inside-imported-file/)
-def createRobot(machine_namespace: Optional[str] = None, hardware_namespace: str = "io"):
+def createRobot(
+    machine_namespace: Optional[str] = None, hardware_namespace: str = "io"
+):
     """Creates and return instance of the robot class.
 
     Parameters:
@@ -595,15 +656,3 @@ def createRobot(machine_namespace: Optional[str] = None, hardware_namespace: str
     global mirte
     mirte = Robot(machine_namespace, hardware_namespace)
     return mirte
-
-
-if __name__ == "__main__":
-    rob = createRobot()
-    print("1")
-    rob.setServoAngle("right", 0)
-    time.sleep(0.5)
-    print("next")
-    rob.setServoAngle("right", 90)
-
-    rob.setOLEDText("right", "laar")
-
