@@ -5,7 +5,8 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="mirte_robot",
-    install_requires=["websocket_server", "rclpy"], # TODO: Require mirte_msgs? rcl_interfaces? controller_manager_msgs?
+    install_requires=["websocket_server"], # TODO: Require mirte_msgs? rcl_interfaces? controller_manager_msgs?
+    # Also requires "rclpy"
     version="0.1.0",
     author="Martin Klomp",
     author_email="m.klomp@tudelft.nl",
