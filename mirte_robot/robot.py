@@ -1,9 +1,8 @@
 #!/usr/bin/env python
+import os
+import platform
 import time
 from typing import TYPE_CHECKING, Optional
-import os
-
-import platform
 
 import rclpy
 import rclpy.node
@@ -14,7 +13,8 @@ if TYPE_CHECKING:
 
 from controller_manager_msgs.srv import SwitchController
 from mirte_msgs.srv import (
-    GetColor,
+    GetColorHSL,
+    GetColorRGBW,
     GetDistance,
     GetEncoder,
     GetIntensity,
@@ -308,18 +308,24 @@ class Robot:
 
         rclpy.spin_until_future_complete(self._node, color_future)
 
-        # FIXME: Add color sensor from v0.1.1
         color_prefixes = color_future.result().result.prefixes
         if len(color_prefixes) > 0:
             color_sensors = [sensor.split(".")[-1] for sensor in color_prefixes]
-            self.color_services = {}
+            self.color_services: dict[str, dict[str, "rclpy.client.Client"]] = {}
             for sensor in color_sensors:
                 self._node.get_logger().info(
                     f"Created service client for color sensor [{sensor}]"
                 )
-                self.color_services[sensor] = self._node.create_client(
-                    GetColor, self._hardware_namespace + "/get_color_" + sensor
-                )
+                self.color_services[sensor] = {
+                    "RGBW": self._node.create_client(
+                        GetColorRGBW,
+                        self._hardware_namespace + "/color/" + sensor + "/get_rgbw",
+                    ),
+                    "HSL": self._node.create_client(
+                        GetColorHSL,
+                        self._hardware_namespace + "/color/" + sensor + "/get_hsl",
+                    ),
+                }
 
         self.get_pin_value_service = self._node.create_client(
             GetPinValue, self._hardware_namespace + "/get_pin_value"
@@ -432,6 +438,26 @@ class Robot:
         return value.data
 
     # TODO: Is this implemented? Message might be missing
+    def getColorRGBW(self, sensor):
+        """Gets the value of the color sensor.
+
+        Parameters:
+            sensor (str): The name of the sensor as defined in the configuration.
+
+        Returns:
+            {r, g, b, w}: Scaled (0-1) values per R(ed), G(reen), B(lue), and W(hite).
+        """
+
+        value = self._call_service(
+            self.color_services[sensor]["RGBW"], GetColorRGBW.Request()
+        )
+        return {
+            "r": value.color.r,
+            "g": value.color.g,
+            "b": value.color.b,
+            "w": value.color.w,
+        }
+
     def getColor(self, sensor):
         """Gets the value of the color sensor.
 
@@ -439,15 +465,16 @@ class Robot:
             sensor (str): The name of the sensor as defined in the configuration.
 
         Returns:
-            {r, g, b, w}: Raw (0-65536) values per R(ed), G(reen), B(lue), and W(hite).
+            {h, s, l}: Hue (0-360), Saturation (0-1), Lightness.
         """
 
-        value = self._call_service(self.color_services[sensor], GetColor.Request())()
+        value = self._call_service(
+            self.color_services[sensor]["HSL"], GetColorHSL.Request()
+        )
         return {
-            "r": value.color.color.r,
-            "g": value.color.color.g,
-            "b": value.color.color.b,
-            "w": value.color.color.w,
+            "h": value.color.h,
+            "s": value.color.s,
+            "l": value.color.l,
         }
 
     def getAnalogPinValue(self, pin):
@@ -656,3 +683,8 @@ def createRobot(
     global mirte
     mirte = Robot(machine_namespace, hardware_namespace)
     return mirte
+
+
+if __name__ == "__main__":
+    rob = createRobot()
+    print(rob.getColor("right"))
