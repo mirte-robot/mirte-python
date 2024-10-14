@@ -2,6 +2,7 @@
 import os
 import platform
 import time
+import math
 from typing import TYPE_CHECKING, Optional
 
 import rclpy
@@ -15,12 +16,12 @@ from controller_manager_msgs.srv import SwitchController
 from mirte_msgs.srv import (
     GetColorHSL,
     GetColorRGBW,
-    GetDistance,
     GetEncoder,
     GetIntensity,
     GetIntensityDigital,
     GetKeypad,
     GetPinValue,
+    GetRange,
     SetMotorSpeed,
     SetOLEDFile,
     SetOLEDText,
@@ -135,7 +136,8 @@ class Robot:
                     f"Created service client for motor [{motor}]"
                 )
                 self.motor_services[motor] = self._node.create_client(
-                    SetMotorSpeed, self._hardware_namespace + "/set_" + motor + "_speed"
+                    SetMotorSpeed,
+                    self._hardware_namespace + "/motor/" + motor + "/set_speed",
                 )
 
             # Service for motor speed
@@ -156,7 +158,7 @@ class Robot:
                 )
                 self.servo_services[servo] = self._node.create_client(
                     SetServoAngle,
-                    self._hardware_namespace + "/set_" + servo + "_servo_angle",
+                    self._hardware_namespace + "/servo/" + servo + "/set_angle",
                 )
 
         ## Sensors
@@ -182,7 +184,8 @@ class Robot:
                     f"Created service client for distance sensor [{sensor}]"
                 )
                 self.distance_services[sensor] = self._node.create_client(
-                    GetDistance, self._hardware_namespace + "/get_distance_" + sensor
+                    GetRange,
+                    self._hardware_namespace + "/distance/" + sensor + "/get_range",
                 )
 
         # Services for oled
@@ -203,11 +206,11 @@ class Robot:
                 self.oled_services[oled] = {
                     "text": self._node.create_client(
                         SetOLEDText,
-                        self._hardware_namespace + "/oled/set_" + oled + "_text",
+                        self._hardware_namespace + "/oled/" + oled + "/set_text",
                     ),
                     "file": self._node.create_client(
                         SetOLEDFile,
-                        self._hardware_namespace + "/oled/set_" + oled + "_file",
+                        self._hardware_namespace + "/oled/" + oled + "/set_file",
                     ),
                 }
 
@@ -235,7 +238,7 @@ class Robot:
             )
             for sensor in intensity_sensors:
                 if (
-                    self._hardware_namespace + "/get_intensity_" + sensor
+                    self._hardware_namespace + "/intensity/" + sensor + "/get_analog"
                     in service_list
                 ):
                     self._node.get_logger().info(
@@ -243,10 +246,13 @@ class Robot:
                     )
                     self.intensity_services[sensor] = self._node.create_client(
                         GetIntensity,
-                        self._hardware_namespace + "/get_intensity_" + sensor,
+                        self._hardware_namespace
+                        + "/intensity/"
+                        + sensor
+                        + "/get_analog",
                     )
                 if (
-                    self._hardware_namespace + "/get_intensity_" + sensor + "_digital"
+                    self._hardware_namespace + "/intensity/" + sensor + "/get_digital"
                     in service_list
                 ):
                     self._node.get_logger().info(
@@ -256,9 +262,9 @@ class Robot:
                         self._node.create_client(
                             GetIntensityDigital,
                             self._hardware_namespace
-                            + "/get_intensity_"
+                            + "/intensity/"
                             + sensor
-                            + "_digital",
+                            + "/get_digital",
                         )
                     )
 
@@ -279,7 +285,7 @@ class Robot:
                 )
                 self.encoder_services[sensor] = self._node.create_client(
                     GetEncoder,
-                    self._hardware_namespace + "/get_encoder_" + sensor,
+                    self._hardware_namespace + "/encoder/" + sensor + "/get_encoder",
                 )
 
         # Services for keypad sensors
@@ -298,7 +304,8 @@ class Robot:
                     f"Created service client for keypad [{sensor}]"
                 )
                 self.keypad_services[sensor] = self._node.create_client(
-                    GetKeypad, self._hardware_namespace + "/get_keypad_" + sensor
+                    GetKeypad,
+                    self._hardware_namespace + "/keypad/" + sensor + "/get_key",
                 )
 
         # Services for color sensors
@@ -380,15 +387,24 @@ class Robot:
             sensor (str): The name of the sensor as defined in the configuration.
 
         Returns:
-            int: Range in meters measured by the HC-SR04 sensor.
+            int: Range in meters measured by the HC-SR04 sensor. (The distance gets clamped to minimum and maximum range of the HC-SR04 sensor)
 
         Warning:
             A maximum of 6 distance sensors is supported.
         """
 
-        dist = self._call_service(self.distance_services[sensor], GetDistance.Request())
-        # FIXME: What to do about -inf, nan and inf?
-        return dist.data
+        value = self._call_service(self.distance_services[sensor], GetRange.Request())
+        range = value.range
+
+        distance: float = range.range
+
+        # FIXME: What to do about nan?
+        if distance == math.inf:
+            distance = range.max_range
+        elif distance == -math.inf:
+            distance = range.min_range
+
+        return distance
 
     def getIntensity(self, sensor, type="analog"):
         """Gets data from an intensity sensor.
@@ -437,7 +453,6 @@ class Robot:
         value = self._call_service(self.keypad_services[keypad], GetKeypad.Request())
         return value.data
 
-    # TODO: Is this implemented? Message might be missing
     def getColorRGBW(self, sensor):
         """Gets the value of the color sensor.
 
@@ -683,8 +698,3 @@ def createRobot(
     global mirte
     mirte = Robot(machine_namespace, hardware_namespace)
     return mirte
-
-
-if __name__ == "__main__":
-    rob = createRobot()
-    print(rob.getColor("right"))
