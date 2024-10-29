@@ -32,7 +32,7 @@ from rcl_interfaces.srv import ListParameters
 
 mirte = {}
 
-# No QoS Profiles are not set, but this might not be required, since they might already behave like ROS 1 persistant.
+# No QoS Profiles are set, but this might not be required, since they might already behave like ROS 1 persistant.
 
 
 class Robot:
@@ -45,7 +45,7 @@ class Robot:
     # Implementation Notes:
     # This class creates a hidden ROS Node for the communication.
     # This should only be run once, however this can not be prevented from the web interface.
-    # There for the node is also anonymized with the current time.
+    # Therefore the node is also anonymized with the current time.
 
     def __init__(
         self, machine_namespace: Optional[str] = None, hardware_namespace: str = "io"
@@ -350,7 +350,7 @@ class Robot:
         rclpy.spin_until_future_complete(self._node, future_response)
         return future_response.result()
 
-    # FIXME: Check if services are avaiable, if not don't hard error on:
+    # FIXME: Check if services are available, if not don't hard error on:
     # AttributeError: 'Robot' object has no attribute 'oled_services'. Did you mean: '_services'?
     def _check_available(self, services: dict[str] | None, id: str) -> bool:
         if services is None:
