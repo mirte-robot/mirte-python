@@ -357,7 +357,7 @@ class Robot:
             return False
         return id in services
 
-    def getTimestamp(self):
+    def getTimestamp(self) -> float:
         """Gets the elapsed time in seconds since the initialization fo the Robot.
 
         Returns:
@@ -366,7 +366,7 @@ class Robot:
 
         return time.time() - self.begin_time
 
-    def getTimeSinceLastCall(self):
+    def getTimeSinceLastCall(self) -> float:
         """Gets the elapsed time in seconds since the last call to this function.
 
         Returns:
@@ -380,14 +380,14 @@ class Robot:
         else:
             return time.time() - last_call
 
-    def getDistance(self, sensor):
+    def getDistance(self, sensor: str) -> float:
         """Gets data from a HC-SR04 distance sensor: calculated distance in meters.
 
         Parameters:
             sensor (str): The name of the sensor as defined in the configuration.
 
         Returns:
-            int: Range in meters measured by the HC-SR04 sensor. (The distance gets clamped to minimum and maximum range of the HC-SR04 sensor)
+            float: Range in meters measured by the HC-SR04 sensor. (The distance gets clamped to minimum and maximum range of the HC-SR04 sensor)
 
         Warning:
             A maximum of 6 distance sensors is supported.
@@ -406,7 +406,7 @@ class Robot:
 
         return distance
 
-    def getIntensity(self, sensor, type="analog"):
+    def getIntensity(self, sensor: str, type: str = "analog") -> int:
         """Gets data from an intensity sensor.
 
         Parameters:
@@ -427,7 +427,7 @@ class Robot:
             )
         return value.data
 
-    def getEncoder(self, sensor):
+    def getEncoder(self, sensor: str) -> int:
         """Gets data from an encoder: every encoder pulse increments the counter.
 
         Parameters:
@@ -440,7 +440,7 @@ class Robot:
         value = self._call_service(self.encoder_services[sensor], GetEncoder.Request())
         return value.data
 
-    def getKeypad(self, keypad):
+    def getKeypad(self, keypad: str) -> str:
         """Gets the value of the keypad: the button that is pressed.
 
         Parameters:
@@ -453,7 +453,7 @@ class Robot:
         value = self._call_service(self.keypad_services[keypad], GetKeypad.Request())
         return value.data
 
-    def getColorRGBW(self, sensor):
+    def getColorRGBW(self, sensor: str) -> dict[str, float]:
         """Gets the value of the color sensor.
 
         Parameters:
@@ -473,7 +473,7 @@ class Robot:
             "w": value.color.w,
         }
 
-    def getColor(self, sensor):
+    def getColor(self, sensor: str) -> dict[str, float]:
         """Gets the value of the color sensor.
 
         Parameters:
@@ -492,7 +492,7 @@ class Robot:
             "l": value.color.l,
         }
 
-    def getAnalogPinValue(self, pin):
+    def getAnalogPinValue(self, pin: str) -> int:
         """Gets the input value of an analog pin.
 
         Parameters:
@@ -507,7 +507,7 @@ class Robot:
         )
         return value.data
 
-    def setAnalogPinValue(self, pin, value):
+    def setAnalogPinValue(self, pin: str, value: int) -> bool:
         """Sets the output value of an analog pin (PWM).
 
         Parameters:
@@ -521,7 +521,7 @@ class Robot:
         )
         return value.status
 
-    def setOLEDText(self, oled, text):
+    def setOLEDText(self, oled: str, text: str) -> bool:
         """Shows text on the OLED.
 
         Parameters:
@@ -533,7 +533,7 @@ class Robot:
         )
         return value.status
 
-    def setOLEDImage(self, oled, image):
+    def setOLEDImage(self, oled: str, image: str) -> bool:
         """Shows image on the OLED.
 
         Parameters:
@@ -552,7 +552,7 @@ class Robot:
         )
         return value.status
 
-    def setOLEDAnimation(self, oled, animation):
+    def setOLEDAnimation(self, oled: str, animation: str) -> bool:
         """Shows animation on the OLED.
 
         Parameters:
@@ -568,11 +568,11 @@ class Robot:
         )
         return value.status
 
-    def getDigitalPinValue(self, pin):
+    def getDigitalPinValue(self, pin: str) -> bool:
         """Gets the input value of a digital pin.
 
         Parameters:
-            pin (str): The pin number of an analog pin as printed on the microcontroller.
+            pin (str): The pin number of a digital pin as printed on the microcontroller.
 
         Returns:
             bool: The input value.
@@ -582,14 +582,14 @@ class Robot:
             self.get_pin_value_service,
             GetPinValue.Request(pin=str(pin), type="digital"),
         )
-        return value.data
+        return bool(value.data)
 
-    def setServoAngle(self, servo, angle):
+    def setServoAngle(self, servo: str, angle: float) -> bool:
         """Sets the angle of a servo.
 
         Parameters:
             servo (str): The name of the sensor as defined in the configuration.
-            angle (int): The angle of the servo (range [0-360], but some servos
+            angle (float): The angle of the servo (range [0-360], but some servos
                             might be physically limited to [0-180].
 
         Returns:
@@ -614,7 +614,7 @@ class Robot:
         )
         return value.status
 
-    def setDigitalPinValue(self, pin, value):
+    def setDigitalPinValue(self, pin: str, value: bool) -> bool:
         """Sets the output value of a digital pin.
 
         Parameters:
@@ -628,7 +628,7 @@ class Robot:
         )
         return value.status
 
-    def setMotorSpeed(self, motor, value):
+    def setMotorSpeed(self, motor: str, value: int) -> bool:
         """Sets the speed of the motor.
 
         Parameters:
@@ -645,7 +645,7 @@ class Robot:
         )
         return motor.status
 
-    def setMotorControl(self, status):
+    def setMotorControl(self, status: bool) -> None:
         """Enables/disables the motor controller. This is enabled on boot, but can
         be disabled/enabled at runtime. This makes the ROS control node pause,
         so it will not respond to Twist messages anymore when disabled.
@@ -670,7 +670,7 @@ class Robot:
             )
         return
 
-    def stop(self):
+    def stop(self) -> None:
         """Stops all DC motors defined in the configuration
 
         Note:
@@ -681,7 +681,7 @@ class Robot:
         for motor in self.motors:
             self.setMotorSpeed(motor, 0)
 
-    def _at_exit(self):
+    def _at_exit(self) -> None:
         self.stop()
         rclpy.try_shutdown()
 
@@ -690,7 +690,7 @@ class Robot:
 # init_node() (see: https://answers.ros.org/question/266612/rospy-init_node-inside-imported-file/)
 def createRobot(
     machine_namespace: Optional[str] = None, hardware_namespace: str = "io"
-):
+) -> Robot:
     """Creates and return instance of the robot class.
 
     Parameters:
