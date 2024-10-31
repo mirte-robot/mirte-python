@@ -538,7 +538,10 @@ class Robot:
 
         Parameters:
             oled (str): The name of the sensor as defined in the configuration.
-            image (str): Image name as defined in the images folder of the mirte-oled-images repository (optionally excl file extension).
+            image (str): Image name/path either an absolute path, a path
+                            relative to the folder of the mirte-oled-images
+                            repository or and package relative path (pkg://PACKAGE_NAME/REST/OF/PATH).
+                            The image extension can be omitted if its png.
         """
 
         value = self._call_service(
@@ -554,7 +557,10 @@ class Robot:
 
         Parameters:
             oled (str): The name of the sensor as defined in the configuration.
-            animation (str): Animation (directory) name as defined in the animations folder of the mirte-oled-images repository.
+            animation (str): Animation (directory) name/path either an absolute
+                                path, a path relative to the folder of the
+                                mirte-oled-images repository or and package
+                                relative path (pkg://PACKAGE_NAME/REST/OF/PATH).
         """
 
         value = self._call_service(
