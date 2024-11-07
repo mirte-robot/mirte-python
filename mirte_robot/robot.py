@@ -1,9 +1,10 @@
 #!/usr/bin/env python
+import math
 import os
 import platform
 import time
-import math
-from typing import TYPE_CHECKING, Optional
+import weakref
+from typing import TYPE_CHECKING, Literal, Optional, overload
 
 import rclpy
 import rclpy.node
@@ -14,18 +15,21 @@ if TYPE_CHECKING:
 
 from controller_manager_msgs.srv import SwitchController
 from mirte_msgs.srv import (
+    GetAnalogPinValue,
+    GetBoardCharacteristics,
     GetColorHSL,
     GetColorRGBW,
+    GetDigitalPinValue,
     GetEncoder,
     GetIntensity,
     GetIntensityDigital,
     GetKeypad,
-    GetPinValue,
     GetRange,
+    SetDigitalPinValue,
     SetMotorSpeed,
     SetOLEDFile,
     SetOLEDText,
-    SetPinValue,
+    SetPWMPinValue,
     SetServoAngle,
 )
 from rcl_interfaces.srv import ListParameters
@@ -101,7 +105,7 @@ class Robot:
         # Call controller_manager/switch_controller service to disable/enable the ROS diff_drive_controller
         # By default this class will control the robot though PWM (controller stopped). Only in case
         # the controller is needed, it will be enabled.
-        self.switch_controller_service = self._node.create_client(
+        self._switch_controller_service = self._node.create_client(
             SwitchController, "controller_manager/switch_controller"
         )
 
@@ -111,12 +115,38 @@ class Robot:
                 self._hardware_namespace + "telemetrix", 10
             ):
                 self._node.get_logger().fatal(
-                    f"Telemetrix node at '{self._node.get_namespace() + self._hardware_namespace  + 'telemetrix'}' was not found! Aborting"
+                    f"Telemetrix node at '{self._node.get_namespace() + '/' + self._hardware_namespace  + '/telemetrix'}' was not found! Aborting"
                 )
                 exit(-1)
         list_parameters: rclpy.client.Client = self._node.create_client(
             ListParameters, self._hardware_namespace + "/telemetrix/list_parameters"
         )
+
+        # # Get the Board Characteristics
+        get_board_characteristics = self._node.create_client(
+            GetBoardCharacteristics,
+            self._hardware_namespace + "/get_board_characteristics",
+        )
+
+        # Wait for the get_board_characteristics to prevent weird errors.
+        if not get_board_characteristics.wait_for_service(1):
+            self._node.get_logger().fatal(
+                f"Telemetrix node at '{self._node.get_namespace()+ '/'+ self._hardware_namespace  + '/telemetrix'}' does not provide a '{self._node.get_namespace() + '/' + self._hardware_namespace + '/get_board_characteristics'}' service! Aborting"
+            )
+            exit(-1)
+
+        board_future: rclpy.Future = get_board_characteristics.call_async(
+            GetBoardCharacteristics.Request()
+        )
+        rclpy.spin_until_future_complete(self._node, board_future)
+
+        board_characteristics: GetBoardCharacteristics.Response = board_future.result()
+
+        self._max_adc: int = board_characteristics.max_adc
+        self._max_pwm: int = board_characteristics.max_pwm
+        self._max_voltage: float = board_characteristics.max_voltage
+
+        self._node.destroy_client(get_board_characteristics)
 
         # Service for motor speed
         self.motors = {}  # FIXME: Is self.motors used?
@@ -141,6 +171,15 @@ class Robot:
                 )
 
             # Service for motor speed
+
+        def finalize(node: rclpy.node.Node, motors: dict[str, rclpy.client.Client]):
+            for motor in motors.values():
+                future = motor.call_async(SetMotorSpeed.Request(speed=0))
+                rclpy.spin_until_future_complete(node, future)
+
+        self._finalizer = weakref.finalize(
+            self, finalize, self._node, self.motor_services
+        )
 
         servo_future = list_parameters.call_async(
             ListParameters.Request(prefixes=["servo"], depth=3)
@@ -334,11 +373,22 @@ class Robot:
                     ),
                 }
 
-        self.get_pin_value_service = self._node.create_client(
-            GetPinValue, self._hardware_namespace + "/get_pin_value"
+        self._node.destroy_client(list_parameters)
+
+        self._get_digital_pin_value_service = self._node.create_client(
+            GetDigitalPinValue, self._hardware_namespace + "/get_digital_pin_value"
         )
-        self.set_pin_value_service = self._node.create_client(
-            SetPinValue, self._hardware_namespace + "/set_pin_value"
+
+        self._get_analog_pin_value_service = self._node.create_client(
+            GetAnalogPinValue, self._hardware_namespace + "/get_analog_pin_value"
+        )
+
+        self._set_digital_pin_value_service = self._node.create_client(
+            SetDigitalPinValue, self._hardware_namespace + "/set_digital_pin_value"
+        )
+
+        self._set_pwm_pin_value_service = self._node.create_client(
+            SetPWMPinValue, self._hardware_namespace + "/set_pwm_pin_value"
         )
 
     def _call_service(
@@ -406,7 +456,15 @@ class Robot:
 
         return distance
 
-    def getIntensity(self, sensor: str, type: str = "analog") -> int:
+    # TODO: Maybe change digital return type to bool
+    @overload
+    def getIntensity(self, sensor: str, type: Literal["analog"]) -> float: ...
+    @overload
+    def getIntensity(self, sensor: str, type: Literal["digital"]) -> int: ...
+
+    def getIntensity(
+        self, sensor: str, type: Literal["analog", "digital"] = "analog"
+    ) -> int | float:
         """Gets data from an intensity sensor.
 
         Parameters:
@@ -414,8 +472,9 @@ class Robot:
             type (str): The type of the sensor (either 'analog' or 'digital').
 
         Returns:
-            int: Value of the sensor (0-255 when analog, 0-1 when digital).
+            int | float: Value of the sensor (0.0-1.0 when analog, 0-1 when digital).
         """
+        # FIXME: IMPROVE ERROR for type
         if type == "analog":
             value = self._call_service(
                 self.intensity_services[sensor], GetIntensity.Request()
@@ -440,7 +499,9 @@ class Robot:
         value = self._call_service(self.encoder_services[sensor], GetEncoder.Request())
         return value.data
 
-    def getKeypad(self, keypad: str) -> str:
+    def getKeypad(
+        self, keypad: str
+    ) -> Literal["", "up", "down", "left", "right", "enter"]:
         """Gets the value of the keypad: the button that is pressed.
 
         Parameters:
@@ -492,22 +553,69 @@ class Robot:
             "l": value.color.l,
         }
 
-    def getAnalogPinValue(self, pin: str) -> int:
+    @overload  # FIXME: Should this return int of float
+    def getAnalogPinValue(self, pin: str, mode: Literal["percentage"]) -> int: ...
+
+    @overload
+    def getAnalogPinValue(self, pin: str, mode: Literal["raw"]) -> int: ...
+
+    @overload
+    def getAnalogPinValue(self, pin: str, mode: Literal["voltage"]) -> float: ...
+
+    # TODO: What to do with max?
+    def getAnalogPinValue(
+        self, pin: str, mode: Literal["percentage", "raw", "voltage"] = "percentage"
+    ) -> float:
         """Gets the input value of an analog pin.
 
         Parameters:
             pin (str): The pin number of an analog pin as printed on the microcontroller.
+            mode (str, optional): The units of the value, can be "percentage", "raw" or "voltage". Defaults to "percentage".
 
+        # FIXME: HOW TO DO DOCS
         Returns:
-            int: Value between 0-255.
+            int: RAW
+            float: Value between 0-5V (Arduino) or 0-3.3V (Pico).
         """
 
-        value = self._call_service(
-            self.get_pin_value_service, GetPinValue.Request(pin=str(pin), type="analog")
+        response: GetAnalogPinValue.Response = self._call_service(
+            self._get_analog_pin_value_service,
+            GetAnalogPinValue.Request(pin=str(pin)),
         )
-        return value.data
 
-    def setAnalogPinValue(self, pin: str, value: int) -> bool:
+        # FIXME: TMP CHECK
+        assert response.status, response.message
+        match mode:
+            case "raw":
+                return response.value
+            case "percentage":
+                return response.value / self._max_adc * 100
+            case "voltage":
+                return response.value / self._max_adc * self._max_voltage
+            case _:
+                assert False, "FIXME: UNKNOWN MODE"
+
+    # TODO: Input int or float? Why not both
+    @overload
+    def setAnalogPinValue(
+        self, pin: str, value: int | float, mode: Literal["percentage"]
+    ) -> bool: ...
+
+    @overload
+    def setAnalogPinValue(self, pin: str, value: int, mode: Literal["raw"]) -> bool: ...
+
+    @overload
+    def setAnalogPinValue(
+        self, pin: str, value: float, mode: Literal["voltage"]
+    ) -> bool: ...
+
+    # FIXME: UPDATE DOCS
+    def setAnalogPinValue(
+        self,
+        pin: str,
+        value: int | float,
+        mode: Literal["percentage", "raw", "voltage"] = "percentage",
+    ) -> bool:
         """Sets the output value of an analog pin (PWM).
 
         Parameters:
@@ -515,11 +623,29 @@ class Robot:
             value (int): Value between 0-255.
         """
 
-        value = self._call_service(
-            self.set_pin_value_service,
-            SetPinValue.Request(pin=str(pin), type="analog", value=value),
+        raw_value = None
+
+        match mode:
+            # TODO: Maybe add u16 bounds checking, since message type is picky
+            case "raw":
+                # Bounds checking happens in telemetrix node
+                raw_value = int(value)
+            case "percentage":
+                # TODO: Maybe check percentage bounds here for better error.
+                raw_value = int((value / 100) * self._max_pwm)
+            case "voltage":
+                # TODO: Maybe check voltage bounds here for better error.
+                raw_value = int((value / self._max_voltage) * self._max_pwm)
+            case _:
+                assert False, "NO VALID MODE"
+
+        response: SetPWMPinValue.Response = self._call_service(
+            self._set_pwm_pin_value_service,
+            SetPWMPinValue.Request(pin=str(pin), value=raw_value),
         )
-        return value.status
+
+        assert response.status, response.message
+        return response.status
 
     def setOLEDText(self, oled: str, text: str) -> bool:
         """Shows text on the OLED.
@@ -578,11 +704,12 @@ class Robot:
             bool: The input value.
         """
 
-        value = self._call_service(
-            self.get_pin_value_service,
-            GetPinValue.Request(pin=str(pin), type="digital"),
+        response: GetDigitalPinValue.Response = self._call_service(
+            self._get_digital_pin_value_service,
+            GetDigitalPinValue.Request(pin=str(pin)),
         )
-        return bool(value.data)
+        assert response.status, response.message
+        return bool(response.value)
 
     def setServoAngle(self, servo: str, angle: float) -> bool:
         """Sets the angle of a servo.
@@ -622,11 +749,13 @@ class Robot:
             value (bool): Value to set.
         """
 
-        value = self._call_service(
-            self.set_pin_value_service,
-            SetPinValue.Request(pin=str(pin), type="digital", value=value),
+        response: SetDigitalPinValue.Response = self._call_service(
+            self._set_digital_pin_value_service,
+            SetDigitalPinValue.Request(pin=str(pin), value=value),
         )
-        return value.status
+        assert response.status, response.message  # FIXME: TMP ERROR
+
+        return response.status
 
     def setMotorSpeed(self, motor: str, value: int) -> bool:
         """Sets the speed of the motor.
@@ -645,7 +774,7 @@ class Robot:
         )
         return motor.status
 
-    def setMotorControl(self, status: bool) -> None:
+    def setMotorControl(self, status: bool) -> bool:
         """Enables/disables the motor controller. This is enabled on boot, but can
         be disabled/enabled at runtime. This makes the ROS control node pause,
         so it will not respond to Twist messages anymore when disabled.
@@ -654,21 +783,20 @@ class Robot:
             status (bool): To which status the motor controller should be set.
 
         Returns:
-            none
+            bool: True if succes (ok)
         """
+        request = None
         if status:
-            self._call_service(
-                self.switch_controller_service,
-                SwitchController.Request(
-                    activate_controllers=[self.CONTROLLER], activate_asap=True
-                ),
+            request = SwitchController.Request(
+                activate_controllers=[self.CONTROLLER], activate_asap=True
             )
         else:
-            self._call_service(
-                self.switch_controller_service,
-                SwitchController.Request(deactivate_controllers=[self.CONTROLLER]),
-            )
-        return
+            request = SwitchController.Request(deactivate_controllers=[self.CONTROLLER])
+
+        response: SwitchController.Response = self._call_service(
+            self._switch_controller_service, request
+        )
+        return response.ok
 
     def stop(self) -> None:
         """Stops all DC motors defined in the configuration
@@ -683,7 +811,6 @@ class Robot:
 
     def _at_exit(self) -> None:
         self.stop()
-        rclpy.try_shutdown()
 
 
 # We need a special function to initiate the Robot() because the main.py need to call the
