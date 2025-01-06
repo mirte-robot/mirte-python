@@ -9,8 +9,8 @@ import time
 import multiprocessing
 from websocket_server import WebsocketServer
 
-# Already load rospy (whicht takes long) and robot, so mirte.py does not need to do this anymore
-import rospy
+# Already load rclpy (whicht takes long) and robot, so mirte.py does not need to do this anymore
+import rclpy
 from mirte_robot import robot
 
 # Global shared memory objects (TODO: check if we need shared memory, why is server working?)
@@ -22,9 +22,9 @@ running = multiprocessing.Value('b', False)
 # 1) the code finishes
 # 2) the user stopped the process
 # 3) the websocket connection is closed
-def stop_mirte(terminate = True):
+def stop_mirte():
      global running
-     if terminate:
+     if running.value:
         process.terminate()
      running.value = False
 
@@ -68,8 +68,8 @@ def load_mirte_module(stepper, do_step, running):
 
     # Sending the linetrace 0 to the client
     server.send_message_to_all("0")
-
-    stop_mirte(False)
+    running.value = False
+    stop_mirte()
 
 process = multiprocessing.Process(target = load_mirte_module, args=(stepper, do_step))
 
