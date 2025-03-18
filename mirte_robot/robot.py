@@ -3,6 +3,8 @@ import math
 import os
 import platform
 import time
+import signal
+import sys
 import weakref
 from typing import TYPE_CHECKING, Literal, Optional, overload
 
@@ -38,7 +40,17 @@ mirte = {}
 
 # No QoS Profiles are set, but this might not be required, since they might already behave like ROS 1 persistant.
 
+def singleton(cls):
+    instances = {}
 
+    def get_instance(*args, **kwargs):
+        if cls not in instances:
+            instances[cls] = cls(*args, **kwargs)
+        return instances[cls]
+
+    return get_instance
+
+@singleton
 class Robot:
     """Robot API
 
@@ -60,20 +72,20 @@ class Robot:
             machine_namespace (Optional[str], optional): The Namespace from '/' to the ROS namespace for the specific Mirte. Defaults to "/{HOSTNAME}". (This only has to be changed when running the Robot API from a different machine directly. It is configured correctly for the Web interface)
             hardware_namespace (str, optional): The namespace for the hardware peripherals. Defaults to "io".
         """
-        self._machine_namespace = (
-            machine_namespace
-            if machine_namespace and validate_namespace(machine_namespace)
-            else "/" + platform.node().replace("-", "_").lower()
-        )
-        self._hardware_namespace = (
-            hardware_namespace
-            if validate_namespace(
-                hardware_namespace
-                if hardware_namespace.startswith("/")
-                else (self._machine_namespace + "/" + hardware_namespace)
-            )
-            else "io"
-        )
+        self._machine_namespace = "" #(
+#            machine_namespace
+#            if machine_namespace and validate_namespace(machine_namespace)
+#            else "/" + platform.node().replace("-", "_").lower()
+#       )
+        self._hardware_namespace = "/io" #(
+#            hardware_namespace
+#            if validate_namespace(
+#                hardware_namespace
+#                if hardware_namespace.startswith("/")
+#                else (self._machine_namespace + "/" + hardware_namespace)
+#            )
+#            else "io"
+#        )
 
         ROS_DISTRO = os.getenv("ROS_DISTRO")
 
@@ -129,7 +141,7 @@ class Robot:
         )
 
         # Wait for the get_board_characteristics to prevent weird errors.
-        if not get_board_characteristics.wait_for_service(1):
+        if not get_board_characteristics.wait_for_service(2):
             self._node.get_logger().fatal(
                 f"Telemetrix node at '{self._node.get_namespace()+ '/'+ self._hardware_namespace  + '/telemetrix'}' does not provide a '{self._node.get_namespace() + '/' + self._hardware_namespace + '/get_board_characteristics'}' service! Aborting"
             )
@@ -390,6 +402,9 @@ class Robot:
         self._set_pwm_pin_value_service = self._node.create_client(
             SetPWMPinValue, self._hardware_namespace + "/set_pwm_pin_value"
         )
+
+        signal.signal(signal.SIGINT, self._signal_handler)
+        signal.signal(signal.SIGTERM, self._signal_handler)
 
     def _call_service(
         self, client: rclpy.client.Client, request: rclpy.client.SrvTypeRequest
@@ -809,12 +824,17 @@ class Robot:
         for motor in self.motors:
             self.setMotorSpeed(motor, 0)
 
+    def _signal_handler(self, sig, frame):
+        self._at_exit()
+
     def _at_exit(self) -> None:
         self.stop()
+        sys.exit()
 
 
 # We need a special function to initiate the Robot() because the main.py need to call the
 # init_node() (see: https://answers.ros.org/question/266612/rospy-init_node-inside-imported-file/)
+# TODO: We probably do not need this anymore in ROS2. But it affects the python imports.
 def createRobot(
     machine_namespace: Optional[str] = None, hardware_namespace: str = "io"
 ) -> Robot:
