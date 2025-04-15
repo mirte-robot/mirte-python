@@ -50,7 +50,8 @@ def singleton(cls):
 
     return get_instance
 
-@singleton
+# We should not decorate the class here with @singleton. That will
+# prevent sphinx autodoc from generating the docs for this class.
 class Robot:
     """Robot API
 
@@ -66,12 +67,12 @@ class Robot:
     def __init__(
         self, machine_namespace: Optional[str] = None, hardware_namespace: str = "io"
     ):
-        """Intialize the Mirte Robot API
+        """Intialize the Mirte Robot API"""
 
-        Parameters:
-            machine_namespace (Optional[str], optional): The Namespace from '/' to the ROS namespace for the specific Mirte. Defaults to "/{HOSTNAME}". (This only has to be changed when running the Robot API from a different machine directly. It is configured correctly for the Web interface)
-            hardware_namespace (str, optional): The namespace for the hardware peripherals. Defaults to "io".
-        """
+#        Parameters:
+#            machine_namespace (Optional[str], optional): The Namespace from '/' to the ROS namespace for the specific Mirte. Defaults to "/{HOSTNAME}". (This only has to be changed when running the Robot API from a different machine directly. It is configured correctly for the Web interface)
+#            hardware_namespace (str, optional): The namespace for the hardware peripherals. Defaults to "io".
+
         self._machine_namespace = "" #(
 #            machine_namespace
 #            if machine_namespace and validate_namespace(machine_namespace)
@@ -587,10 +588,8 @@ class Robot:
             pin (str): The pin number of an analog pin as printed on the microcontroller.
             mode (str, optional): The units of the value, can be "percentage", "raw" or "voltage". Defaults to "percentage".
 
-        # FIXME: HOW TO DO DOCS
         Returns:
-            int: RAW
-            float: Value between 0-5V (Arduino) or 0-3.3V (Pico).
+            int | float: Value of the pin (0-100 when percentage, 0-<max_mcu_value> when raw, 0-<max_mcu_voltage>V when voltage).
         """
 
         response: GetAnalogPinValue.Response = self._call_service(
@@ -849,5 +848,5 @@ def createRobot(
     """
 
     global mirte
-    mirte = Robot(machine_namespace, hardware_namespace)
+    mirte = singleton(Robot(machine_namespace, hardware_namespace))
     return mirte
