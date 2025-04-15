@@ -823,6 +823,9 @@ class Robot:
         for motor in self.motors:
             self.setMotorSpeed(motor, 0)
 
+    def getROSNode(self):
+        return self._node
+    
     def _signal_handler(self, sig, frame):
         self._at_exit()
 
