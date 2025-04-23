@@ -15,9 +15,10 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/mirte-robot/mirte-python",
     packages=['mirte_robot'],
+    license="Apache License 2.0",
     classifiers=[
         "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: BSD License",
+        "License :: OSI Approved :: pache Software License",
         "Operating System :: OS Independent",
     ],
     python_requires='>=3.6',
