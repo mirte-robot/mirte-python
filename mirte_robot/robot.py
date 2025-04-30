@@ -5,6 +5,7 @@ import platform
 import time
 import signal
 import sys
+import threading
 import weakref
 from typing import TYPE_CHECKING, Literal, Optional, overload
 
@@ -35,6 +36,18 @@ from mirte_msgs.srv import (
     SetServoAngle,
 )
 from rcl_interfaces.srv import ListParameters
+
+#####
+#
+# There are 4 use cases that should exit the user code:
+#
+# 1) Running "while true" (and CTRL-C) from commandline
+# 2) Running "for 10" from commandline
+# 3) Running "while true" (and stop/CTRL-C) from web interface
+# 4) Running "for 10" from web interface
+#
+#####
+
 
 mirte = {}
 
@@ -101,6 +114,8 @@ class Robot:
 
         # Stop robot when exited
         rclpy.get_default_context().on_shutdown(self._at_exit)
+        self._stopping = False
+        self._lock = threading.Lock()
 
         self.CONTROLLER = "diffbot_base_controller"
 
@@ -181,6 +196,7 @@ class Robot:
                     SetMotorSpeed,
                     self._hardware_namespace + "/motor/" + motor + "/set_speed",
                 )
+                self.motor_services[motor].wait_for_service()
 
             # Service for motor speed
 
@@ -211,6 +227,7 @@ class Robot:
                     SetServoAngle,
                     self._hardware_namespace + "/servo/" + servo + "/set_angle",
                 )
+                self.servo_services[servo].wait_for_service()
 
         ## Sensors
         ## The sensors are now just using a blocking service call. This is intentionally
@@ -238,6 +255,7 @@ class Robot:
                     GetRange,
                     self._hardware_namespace + "/distance/" + sensor + "/get_range",
                 )
+                self.distance_services[sensor].wait_for_service()
 
         # Services for oled
         oled_future = list_parameters.call_async(
@@ -264,6 +282,8 @@ class Robot:
                         self._hardware_namespace + "/oled/" + oled + "/set_file",
                     ),
                 }
+                self.oled_services[oled]["text"].wait_for_service()
+                self.oled_services[oled]["file"].wait_for_service()
 
         # Services for intensity sensors (TODO: how to expose the digital version?)
         intensity_future = list_parameters.call_async(
@@ -302,6 +322,7 @@ class Robot:
                         + sensor
                         + "/get_analog",
                     )
+                    self.intensity_services[sensor].wait_for_service()
                 if (
                     self._hardware_namespace + "/intensity/" + sensor + "/get_digital"
                     in service_list
@@ -318,6 +339,7 @@ class Robot:
                             + "/get_digital",
                         )
                     )
+                    self.intensity_services[sensor + "_digital"].wait_for_service()
 
         # Services for encoder sensors
         encoder_future = list_parameters.call_async(
@@ -338,6 +360,7 @@ class Robot:
                     GetEncoder,
                     self._hardware_namespace + "/encoder/" + sensor + "/get_encoder",
                 )
+                self.encoder_services[sensor].wait_for_service()
 
         # Services for keypad sensors
         keypad_future = list_parameters.call_async(
@@ -358,6 +381,7 @@ class Robot:
                     GetKeypad,
                     self._hardware_namespace + "/keypad/" + sensor + "/get_key",
                 )
+                self.keypad_services[sensor].wait_for_service()
 
         # Services for color sensors
         color_future = list_parameters.call_async(
@@ -384,6 +408,9 @@ class Robot:
                         self._hardware_namespace + "/color/" + sensor + "/get_hsl",
                     ),
                 }
+                self.color_services[sensor]["RGBW"].wait_for_service()
+                self.color_services[sensor]["HSL"].wait_for_service()
+
 
         self._node.destroy_client(list_parameters)
 
@@ -409,10 +436,17 @@ class Robot:
     def _call_service(
         self, client: rclpy.client.Client, request: rclpy.client.SrvTypeRequest
     ) -> rclpy.client.SrvTypeResponse:
-        client.wait_for_service()
 
-        future_response = client.call_async(request)
-        rclpy.spin_until_future_complete(self._node, future_response)
+        with self._lock:
+          future_response = client.call_async(request)
+          while not future_response.done() and not self._stopping:
+            rclpy.spin_once(self._node, timeout_sec=0.1)
+
+        if self._stopping:
+          with self._lock:
+             self._stopping = False
+          self._at_exit()
+
         return future_response.result()
 
     # FIXME: Check if services are available, if not don't hard error on:
@@ -824,8 +858,13 @@ class Robot:
         for motor in self.motors:
             self.setMotorSpeed(motor, 0)
 
+
     def _signal_handler(self, sig, frame):
-        self._at_exit()
+        self._stopping = True
+
+        if (not self._lock.locked()):
+          self._at_exit()
+
 
     def _at_exit(self) -> None:
         self.stop()
