@@ -500,11 +500,8 @@ class Robot:
 
         distance: float = range.range
 
-        # FIXME: What to do about nan?
-        if distance == math.inf:
-            distance = range.max_range
-        elif distance == -math.inf:
-            distance = range.min_range
+        if distance == math.inf or distance == -math.inf or math.isnan(distance):
+            distance = -1
 
         return distance
 
