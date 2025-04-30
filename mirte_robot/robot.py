@@ -63,8 +63,10 @@ def singleton(cls):
 
     return get_instance
 
-# We should not decorate the class here with @singleton. That will
-# prevent sphinx autodoc from generating the docs for this class.
+# TODO: We should not decorate the class here with @singleton. That will
+# prevent sphinx autodoc from generating the docs for this class. But the
+# previous check did not work.
+@singleton
 class Robot:
     """Robot API
 
@@ -890,5 +892,5 @@ def createRobot(
     """
 
     global mirte
-    mirte = singleton(Robot(machine_namespace, hardware_namespace))
+    mirte = Robot(machine_namespace, hardware_namespace)
     return mirte
