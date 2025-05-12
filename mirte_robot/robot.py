@@ -51,22 +51,6 @@ from rcl_interfaces.srv import ListParameters
 
 mirte = {}
 
-# No QoS Profiles are set, but this might not be required, since they might already behave like ROS 1 persistant.
-
-def singleton(cls):
-    instances = {}
-
-    def get_instance(*args, **kwargs):
-        if cls not in instances:
-            instances[cls] = cls(*args, **kwargs)
-        return instances[cls]
-
-    return get_instance
-
-# TODO: We should not decorate the class here with @singleton. That will
-# prevent sphinx autodoc from generating the docs for this class. But the
-# previous check did not work.
-@singleton
 class Robot:
     """Robot API
 
@@ -76,13 +60,29 @@ class Robot:
 
     # Implementation Notes:
     # This class creates a hidden ROS Node for the communication.
-    # This should only be run once, however this can not be prevented from the web interface.
+    # This class is a singleton.
+    # No QoS Profiles are set, but this might not be required, since they might already behave like ROS 1 persistant.
     # Therefore the node is also anonymized with the current time.
+
+    # Ensuring singleton behavior
+    # This should not be done as a decorator, since the decorator returns a
+    # function. Therefor the sphynx documentation is not able to process
+    # this class anymore.
+    _instance = None
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super(Robot, cls).__new__(cls)
+            rclpy.init()
+        return cls._instance
 
     def __init__(
         self, machine_namespace: Optional[str] = None, hardware_namespace: str = "io"
     ):
         """Intialize the Mirte Robot API"""
+
+        # Only the first instance (singelton) needs to be initialized
+        if getattr(self, "_initialized", False):
+            return
 
 #        Parameters:
 #            machine_namespace (Optional[str], optional): The Namespace from '/' to the ROS namespace for the specific Mirte. Defaults to "/{HOSTNAME}". (This only has to be changed when running the Robot API from a different machine directly. It is configured correctly for the Web interface)
@@ -105,10 +105,8 @@ class Robot:
 
         ROS_DISTRO = os.getenv("ROS_DISTRO")
 
-        rclpy.init()
-
-        # This node should be only ran once.
-        # No 'anonymous' flag available, so use unix epoch nano seconds to pad name
+        # In order to be able to run this from multiple python files (ie creating
+        # multtiple nodes) a timestamp is added (replicating a 'anonymous' node)
         self._node = rclpy.node.Node(
             "_mirte_python_api_" + str(time.time_ns()),
             namespace=self._machine_namespace,
@@ -435,6 +433,8 @@ class Robot:
 
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
+
+        self._initialized = True
 
     def _call_service(
         self, client: rclpy.client.Client, request: rclpy.client.SrvTypeRequest
