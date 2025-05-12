@@ -118,7 +118,10 @@ class Robot:
         self._stopping = False
         self._lock = threading.Lock()
 
-        self.CONTROLLER = "diffbot_base_controller"
+        # Assuming we are only using the Python API for the MIRTE Pioneer. This
+        # is only used for setMotorControl(), so all other functions should
+        # (theoretically) still work on teh MIRTE Master.
+        self.CONTROLLER = "mirte_base_controller"
 
         self.PWM = 3  # PrivateConstants.PWM when moving to Python3
         self.INPUT = 0
