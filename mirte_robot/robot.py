@@ -51,6 +51,7 @@ from rcl_interfaces.srv import ListParameters
 
 mirte = {}
 
+
 class Robot:
     """Robot API
 
@@ -69,6 +70,7 @@ class Robot:
     # function. Therefor the sphynx documentation is not able to process
     # this class anymore.
     _instance = None
+
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
             cls._instance = super(Robot, cls).__new__(cls)
@@ -84,24 +86,24 @@ class Robot:
         if getattr(self, "_initialized", False):
             return
 
-#        Parameters:
-#            machine_namespace (Optional[str], optional): The Namespace from '/' to the ROS namespace for the specific Mirte. Defaults to "/{HOSTNAME}". (This only has to be changed when running the Robot API from a different machine directly. It is configured correctly for the Web interface)
-#            hardware_namespace (str, optional): The namespace for the hardware peripherals. Defaults to "io".
+        #        Parameters:
+        #            machine_namespace (Optional[str], optional): The Namespace from '/' to the ROS namespace for the specific Mirte. Defaults to "/{HOSTNAME}". (This only has to be changed when running the Robot API from a different machine directly. It is configured correctly for the Web interface)
+        #            hardware_namespace (str, optional): The namespace for the hardware peripherals. Defaults to "io".
 
-        self._machine_namespace = "" #(
-#            machine_namespace
-#            if machine_namespace and validate_namespace(machine_namespace)
-#            else "/" + platform.node().replace("-", "_").lower()
-#       )
-        self._hardware_namespace = "/io" #(
-#            hardware_namespace
-#            if validate_namespace(
-#                hardware_namespace
-#                if hardware_namespace.startswith("/")
-#                else (self._machine_namespace + "/" + hardware_namespace)
-#            )
-#            else "io"
-#        )
+        self._machine_namespace = ""  # (
+        #            machine_namespace
+        #            if machine_namespace and validate_namespace(machine_namespace)
+        #            else "/" + platform.node().replace("-", "_").lower()
+        #       )
+        self._hardware_namespace = "/io"  # (
+        #            hardware_namespace
+        #            if validate_namespace(
+        #                hardware_namespace
+        #                if hardware_namespace.startswith("/")
+        #                else (self._machine_namespace + "/" + hardware_namespace)
+        #            )
+        #            else "io"
+        #        )
 
         ROS_DISTRO = os.getenv("ROS_DISTRO")
 
@@ -415,7 +417,6 @@ class Robot:
                 self.color_services[sensor]["RGBW"].wait_for_service()
                 self.color_services[sensor]["HSL"].wait_for_service()
 
-
         self._node.destroy_client(list_parameters)
 
         self._get_digital_pin_value_service = self._node.create_client(
@@ -444,14 +445,14 @@ class Robot:
     ) -> rclpy.client.SrvTypeResponse:
 
         with self._lock:
-          future_response = client.call_async(request)
-          while not future_response.done() and not self._stopping:
-            rclpy.spin_once(self._node, timeout_sec=0.1)
+            future_response = client.call_async(request)
+            while not future_response.done() and not self._stopping:
+                rclpy.spin_once(self._node, timeout_sec=0.1)
 
         if self._stopping:
-          with self._lock:
-             self._stopping = False
-          self._at_exit()
+            with self._lock:
+                self._stopping = False
+            self._at_exit()
 
         return future_response.result()
 
@@ -863,13 +864,11 @@ class Robot:
     def getROSNode(self):
         return self._node
 
-
     def _signal_handler(self, sig, frame):
         self._stopping = True
 
-        if (not self._lock.locked()):
-          self._at_exit()
-
+        if not self._lock.locked():
+            self._at_exit()
 
     def _at_exit(self) -> None:
         self.stop()

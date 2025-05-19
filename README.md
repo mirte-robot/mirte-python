@@ -1,3 +1,12 @@
-# Mirte Python API
+# MIRTE Python API
+This package provides the API for the MIRTE Robot. Please 
+read the MIRTE documentation.
 
-This package provides the API for the Mirte Robot. Please read the Mirte documentation.
+# Test code style
+To check the Python code style run:
+```sh
+pip install black
+black --check **/**.py
+# Fix by using
+black **/**.py
+```
