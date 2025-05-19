@@ -594,6 +594,7 @@ class Robot:
 
         Returns:
             {h, s, l}: Hue (0-360), Saturation (0-1), Lightness.
+            {h, s, l}: Hue (0-360), Saturation (0-1), Lightness.
         """
 
         value = self._call_service(
