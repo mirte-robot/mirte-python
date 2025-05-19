@@ -5,7 +5,9 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="mirte_robot",
-    install_requires=["websocket_server"], # TODO: Require mirte_msgs? rcl_interfaces? controller_manager_msgs?
+    install_requires=[
+        "websocket_server"
+    ],  # TODO: Require mirte_msgs? rcl_interfaces? controller_manager_msgs?
     # Also requires "rclpy"
     version="0.1.0",
     author="Martin Klomp",
@@ -14,12 +16,12 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/mirte-robot/mirte-python",
-    packages=['mirte_robot'],
+    packages=["mirte_robot"],
     license="Apache License 2.0",
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
     ],
-    python_requires='>=3.6',
+    python_requires=">=3.6",
 )

@@ -6,7 +6,7 @@ read the MIRTE documentation.
 To check the Python code style run:
 ```sh
 pip install black
-black --check **/**.py
+black --check .
 # Fix by using
-black **/**.py
+black .
 ```
