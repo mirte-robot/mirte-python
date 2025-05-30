@@ -23,3 +23,7 @@ black --check .
 black .
 ```
 
+## License
+
+This work is licensed under a Apache-2.0 OSS license.
+
