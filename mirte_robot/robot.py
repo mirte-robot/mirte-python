@@ -464,7 +464,7 @@ class Robot:
         return id in services
 
     def getTimestamp(self) -> float:
-        """Gets the elapsed time in seconds since the initialization fo the Robot.
+        """Gets the elapsed time in seconds since the initialization of the Robot.
 
         Returns:
             float: Time in seconds since the initialization of the Robot. Fractions of a second may be present if the system clock provides them.
@@ -496,7 +496,7 @@ class Robot:
             float: Range in meters measured by the HC-SR04 sensor. (The distance gets clamped to minimum and maximum range of the HC-SR04 sensor)
 
         Warning:
-            A maximum of 6 distance sensors is supported.
+            Depeding on the MCU used, there might be a mamimum of the number of distance sensors one can use.
         """
 
         value = self._call_service(self.distance_services[sensor], GetRange.Request())
@@ -775,15 +775,14 @@ class Robot:
             bool: True if set successfully.
 
         Warning:
-            The servo uses the Servo library from Arduino (through Telemetrix). This also
-            means that, when a servo is used and the library is enabled, the last timer on
-            the MCU will be used for timing of the servos. This timer therefore can not be
-            used for PWM anymore. For Arduino Nano/Uno this means pins D9 and D10 will not
-            have PWM anymore. For the SMT32 this means pins A1, A2, A3, A15, B3, B10, and B11
-            will not have PWM anymore.
+            Servos use PWM signals, which needs MCU timers. Depending on the MCU
+            and the servo implementation, it might be the case that enabling a servo
+            can interfere with (or use other) timers. This can lead to PWM signals not
+            functioning on some pins that used to have PWM (due to used timers).
 
         Warning:
-            A maximum of 12 servos is supported.
+            Depeding on the MCU used, there might be a mamimum of the number of servos
+            one can use.
         """
         value = self._call_service(
             self.servo_services[servo],
