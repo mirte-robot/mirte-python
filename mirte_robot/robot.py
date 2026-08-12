@@ -291,19 +291,21 @@ class Robot:
                 self.oled_services[oled]["text"].wait_for_service()
                 self.oled_services[oled]["file"].wait_for_service()
 
-        # Services for intensity sensors (TODO: how to expose the digital version?)
-        intensity_future = list_parameters.call_async(
-            ListParameters.Request(prefixes=["intensity"], depth=3)
+
+
+        # Services for line sensors (TODO: how to expose the digital version?)
+        line_future = list_parameters.call_async(
+            ListParameters.Request(prefixes=["line"], depth=3)
         )
 
-        rclpy.spin_until_future_complete(self._node, intensity_future)
+        rclpy.spin_until_future_complete(self._node, line_future)
 
-        intensity_prefixes = intensity_future.result().result.prefixes
-        if len(intensity_prefixes) > 0:
-            intensity_sensors = [sensor.split(".")[-1] for sensor in intensity_prefixes]
-            self.intensity_services = {}
+        line_prefixes = line_future.result().result.prefixes
+        if len(line_prefixes) > 0:
+            line_sensors = [sensor.split(".")[-1] for sensor in line_prefixes]
+            self.line_services = {}
 
-            # We can not get the types (analog and/or digital) of the intensity sensor
+            # We can not get the types (analog and/or digital) of the line sensor
             # straight from the parameter server (it might be just set as the PCB without
             # explicit values. We can however deduct what is there by checking the
             # services.
@@ -313,39 +315,64 @@ class Robot:
                     for service, service_type in self._node.get_service_names_and_types()
                 ]
             )
-            for sensor in intensity_sensors:
+            for sensor in line_sensors:
                 if (
-                    self._hardware_namespace + "/intensity/" + sensor + "/get_analog"
+                    self._hardware_namespace + "/line/" + sensor + "/get_analog"
                     in service_list
                 ):
                     self._node.get_logger().info(
-                        f"Created service client for intensity [{sensor}]"
+                        f"Created service client for line [{sensor}]"
                     )
-                    self.intensity_services[sensor] = self._node.create_client(
+                    self.line_services[sensor] = self._node.create_client(
                         GetIntensity,
                         self._hardware_namespace
-                        + "/intensity/"
+                        + "/line/"
                         + sensor
                         + "/get_analog",
                     )
-                    self.intensity_services[sensor].wait_for_service()
+                    self.line_services[sensor].wait_for_service()
                 if (
-                    self._hardware_namespace + "/intensity/" + sensor + "/get_digital"
+                    self._hardware_namespace + "/line/" + sensor + "/get_digital"
                     in service_list
                 ):
                     self._node.get_logger().info(
-                        f"Created service client for digital intensity [{sensor}]"
+                        f"Created service client for digital line [{sensor}]"
                     )
-                    self.intensity_services[sensor + "_digital"] = (
+                    self.line_services[sensor + "_digital"] = (
                         self._node.create_client(
                             GetIntensityDigital,
                             self._hardware_namespace
-                            + "/intensity/"
+                            + "/line/"
                             + sensor
                             + "/get_digital",
                         )
                     )
-                    self.intensity_services[sensor + "_digital"].wait_for_service()
+                    self.line_services[sensor + "_digital"].wait_for_service()
+
+        # Services for object sensors
+        object_future = list_parameters.call_async(
+            ListParameters.Request(prefixes=["object"], depth=3)
+        )
+
+        rclpy.spin_until_future_complete(self._node, object_future)
+
+        object_prefixes = object_future.result().result.prefixes
+        if len(object_prefixes) > 0:
+            object_sensors = [sensor.split(".")[-1] for sensor in object_prefixes]
+            self.object_services = {}
+            for sensor in object_sensors:
+                if (
+                    self._hardware_namespace + "/object/" + sensor + "/get_digital"
+                    in service_list
+                ):
+                    self._node.get_logger().info(
+                        f"Created service client for object [{sensor}]"
+                    )
+                    self.object_services[sensor] = self._node.create_client(
+                        GetIntensityDigital,
+                        self._hardware_namespace + "/object/" + sensor + "/get_digital",
+                    )
+                    self.object_services[sensor].wait_for_service()
 
         # Services for encoder sensors
         encoder_future = list_parameters.call_async(
@@ -509,16 +536,29 @@ class Robot:
 
         return distance
 
+    def getObject(self, sensor: str) -> bool:
+        """Gets data from a IR object (proximity) sensor.
+
+        Parameters:
+            sensor (str): The name of the sensor as defined in the configuration.
+
+        Returns:
+            bool: Whether the sensor detected someting in its proximity.
+        """
+
+        value = self._call_service(self.object_services[sensor], GetIntensityDigital.Request())
+        return value.data
+
     # TODO: Maybe change digital return type to bool
     @overload
-    def getIntensity(self, sensor: str, type: Literal["analog"]) -> float: ...
+    def getLine(self, sensor: str, type: Literal["analog"]) -> float: ...
     @overload
-    def getIntensity(self, sensor: str, type: Literal["digital"]) -> int: ...
+    def getLine(self, sensor: str, type: Literal["digital"]) -> int: ...
 
-    def getIntensity(
+    def getLine(
         self, sensor: str, type: Literal["analog", "digital"] = "analog"
     ) -> int | float:
-        """Gets data from an intensity sensor.
+        """Gets data from a line sensor.
 
         Parameters:
             sensor (str): The name of the sensor as defined in the configuration.
@@ -530,11 +570,11 @@ class Robot:
         # FIXME: IMPROVE ERROR for type
         if type == "analog":
             value = self._call_service(
-                self.intensity_services[sensor], GetIntensity.Request()
+                self.line_services[sensor], GetIntensity.Request()
             )
         if type == "digital":
             value = self._call_service(
-                self.intensity_services[sensor + "_digital"],
+                self.line_services[sensor + "_digital"],
                 GetIntensityDigital.Request(),
             )
         return value.data
