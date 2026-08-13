@@ -189,6 +189,7 @@ class Robot:
         rclpy.spin_until_future_complete(self._node, motors_future)
 
         motor_prefixes: list[str] = motors_future.result().result.prefixes
+        self.motor_services = {}
         if len(motor_prefixes) > 0:
             self.motors = [
                 motor_prefix.split(".")[-1] for motor_prefix in motor_prefixes
